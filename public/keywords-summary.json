@@ -1,0 +1,71 @@
+{
+  "fetchedAt": "2025-12-04T09:56:00.958Z",
+  "collections": [
+    {
+      "name": "SEO Pages",
+      "collection": "seo-pages",
+      "itemCount": 1
+    },
+    {
+      "name": "Features Pages",
+      "collection": "feature-pages",
+      "itemCount": 7
+    },
+    {
+      "name": "Integrations Page",
+      "collection": "integration-pages",
+      "itemCount": 2
+    },
+    {
+      "name": "Templates Pages",
+      "collection": "template-pages",
+      "itemCount": 12
+    },
+    {
+      "name": "Google Sheets Templates",
+      "collection": "google-sheets-template-pages",
+      "itemCount": 6
+    },
+    {
+      "name": "Looker Studio Templates",
+      "collection": "looker-studio-template-pages",
+      "itemCount": 3
+    },
+    {
+      "name": "Cluster Pages",
+      "collection": "cluster-pages",
+      "itemCount": 8
+    },
+    {
+      "name": "Connector Pages",
+      "collection": "connector-pages",
+      "itemCount": 4
+    },
+    {
+      "name": "Blogs",
+      "collection": "topical-authority-pages",
+      "itemCount": 50
+    },
+    {
+      "name": "Competitor Comparison",
+      "collection": "competitor-comparison-pages",
+      "itemCount": 5
+    },
+    {
+      "name": "Alternative Pages",
+      "collection": "alternative-pages-v2s",
+      "itemCount": 1
+    },
+    {
+      "name": "Reporting Tool Pages",
+      "collection": "reporting-tool-pages-v2",
+      "itemCount": 24
+    },
+    {
+      "name": "Case Studies",
+      "collection": "case-studies",
+      "itemCount": 1
+    }
+  ],
+  "totalPages": 124
+}
