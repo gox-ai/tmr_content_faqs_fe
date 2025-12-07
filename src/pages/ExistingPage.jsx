@@ -1,6 +1,123 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import LoadingSpinner from "./LoadingSpinner";
-const API_BASE = "http://localhost:5001";
+
+const API_BASE = process.env.REACT_APP_API_URL
+const STRAPI_COLLECTIONS = [
+  { label: 'Feature Tour Pages', value: 'feature-pages' },
+  { label: 'Blogs', value: 'url-pattern-blog' },
+  { label: 'Integrations', value: 'url-pattern-integrations' },
+  { label: 'Templates', value: 'url-pattern-templates' },
+  { label: 'Other Pages', value: 'url-pattern-other' },
+];
+
+const COLLECTION_TO_CATEGORY_MAP = {
+  'seo-pages': 'SEO Landing Pages',
+  'feature-pages': 'Feature Tour Pages',
+  'integration-pages': 'Integrations',
+  'template-pages': 'Templates',
+  'reporting-tool-pages-v2': 'Product Pages',
+  'topical-authority-pages': 'Blogs',
+};
+function FAQCard({ faq, index, copiedIndex, onCopy, rephrasedData, onCopyRephrased }) {
+  return (
+    <div className={`border-l-4 pl-4 mb-6`}>
+      <h3 className="font-bold text-black">
+        Q{index + 1}: {faq.question}
+      </h3>
+      <p
+        className="text-black mt-2"
+        dangerouslySetInnerHTML={{ __html: faq.answer }}
+      />
+
+      {rephrasedData && (
+        <details className="mt-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
+          <summary className="cursor-pointer font-semibold text-[rgb(255,103,0)]">
+            View Rephrased Versions
+          </summary>
+
+          <div className="mt-3 pl-2 space-y-4 text-gray-800">
+            {rephrasedData?.rephrased?.version_1 ? (
+              <>
+                <div className="flex justify-between items-start bg-white p-3 rounded-md shadow-sm border border-gray-200">
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">
+                      Q1: {rephrasedData.rephrased.version_1?.question || ""}
+                    </p>
+                    <p
+                      className="text-sm leading-relaxed mt-1"
+                      dangerouslySetInnerHTML={{
+                        __html: rephrasedData.rephrased.version_1?.answer || "",
+                      }}
+                    />
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const text = `Q: ${rephrasedData.rephrased.version_1?.question || ""}\\nA: ${rephrasedData.rephrased.version_1?.answer || ""}`;
+                      await navigator.clipboard.writeText(text);
+                      onCopyRephrased(`v1-${index}`);
+                      setTimeout(() => onCopyRephrased(null), 2000);
+                    }}
+                    className={`ml-4 px-3 py-1 rounded-md text-sm font-semibold text-white transition ${copiedIndex === `v1-${index}`
+                      ? "bg-[rgb(255,103,0)]"
+                      : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
+                      }`}
+                  >
+                    {copiedIndex === `v1-${index}` ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                <div className="flex justify-between items-start bg-white p-3 rounded-md shadow-sm border border-gray-200">
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">
+                      Q2: {rephrasedData.rephrased.version_2?.question || ""}
+                    </p>
+                    <p
+                      className="text-sm leading-relaxed mt-1"
+                      dangerouslySetInnerHTML={{
+                        __html: rephrasedData.rephrased.version_2?.answer || "",
+                      }}
+                    />
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const text = `Q: ${rephrasedData.rephrased.version_2?.question || ""}\\nA: ${rephrasedData.rephrased.version_2?.answer || ""}`;
+                      await navigator.clipboard.writeText(text);
+                      onCopyRephrased(`v2-${index}`);
+                      setTimeout(() => onCopyRephrased(null), 2000);
+                    }}
+                    className={`ml-4 px-3 py-1 rounded-md text-sm font-semibold text-white transition ${copiedIndex === `v2-${index}`
+                      ? "bg-[rgb(255,103,0)]"
+                      : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
+                      }`}
+                  >
+                    {copiedIndex === `v2-${index}` ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-gray-500 italic">
+                Rephrased versions are not yet available.
+              </p>
+            )}
+          </div>
+        </details>
+      )}
+
+      <button
+        onClick={async () => {
+          await navigator.clipboard.writeText(`Q: ${faq.question}\\nA: ${faq.answer}`);
+          onCopy(index);
+          setTimeout(() => onCopy(null), 2000);
+        }}
+        className={`mt-3 px-4 py-2 rounded-lg font-semibold text-white transition ${copiedIndex === index
+          ? "bg-[rgb(255,103,0)]"
+          : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
+          }`}
+      >
+        {copiedIndex === index ? "Copied!" : "Copy"}
+      </button>
+    </div>
+  );
+}
 
 export default function ExistingPage() {
   const [mainKeyword, setMainKeyword] = useState("");
@@ -15,8 +132,11 @@ export default function ExistingPage() {
   const [copiedPAAIndex, setCopiedPAAIndex] = useState(null);
   const [copiedContentIndex, setCopiedContentIndex] = useState(null);
   const [strapiStatus, setStrapiStatus] = useState("");
-  const [interlinks, setInterlinks] = useState([]);
   const [keywordsData, setKeywordsData] = useState(null);
+  const [selectedStrapiCollection, setSelectedStrapiCollection] = useState("");
+  const [strapiPages, setStrapiPages] = useState([]);
+  const [selectedStrapiPage, setSelectedStrapiPage] = useState("");
+
   useEffect(() => {
     fetch('/keywords.json')
       .then(res => res.json())
@@ -26,31 +146,7 @@ export default function ExistingPage() {
       })
       .catch(err => console.error("Failed to load keywords.json", err));
   }, []);
-  const [strapiCollections] = useState([
-    { label: 'SEO Pages', value: 'seo-pages' },
-    { label: 'Features Pages', value: 'feature-pages' },
-    { label: 'Integrations Page', value: 'integration-pages' },
-    { label: 'Templates Pages', value: 'template-pages' },
-    { label: 'Google Sheets Templates', value: 'google-sheets-template-pages' },
-    { label: 'Looker Studio Templates', value: 'looker-studio-template-pages' },
-    { label: 'Solution Pages', value: 'solution-pages' },
-    { label: 'Cluster Pages', value: 'cluster-pages' },
-    { label: 'Connector Pages', value: 'connector-pages' },
-    { label: 'Blogs', value: 'topical-authority-pages' },
-    { label: 'Competitor Comparison', value: 'competitor-comparison-pages' },
-    { label: 'Alternative Pages', value: 'alternative-pages-v2s' },
-    { label: 'Case Studies', value: 'case-studies' },
-    { label: 'Reporting Tool Pages', value: 'reporting-tool-pages-v2' },
-    { label: 'Addon Pages', value: 'addon-pages' },
-    { label: 'Integration to Google Sheets', value: 'integration-to-google-sheets-pages' },
-    { label: 'Integration to Looker Studio', value: 'integration-to-looker-studio-pages' },
-    { label: 'Documents', value: 'documents-pages' },
-    { label: 'Other Pages', value: 'other-pages' },
-  ]);
 
-  const [selectedStrapiCollection, setSelectedStrapiCollection] = useState("");
-  const [strapiPages, setStrapiPages] = useState([]);
-  const [selectedStrapiPage, setSelectedStrapiPage] = useState("");
   useEffect(() => {
     if (selectedStrapiCollection) {
       fetchStrapiPages();
@@ -59,37 +155,112 @@ export default function ExistingPage() {
 
   const fetchStrapiPages = async () => {
     try {
-      setStrapiStatus("⏳ Loading pages from Strapi...");
-      const response = await fetch(`${API_BASE}/api/fetch-strapi-content`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ collection: selectedStrapiCollection }),
-      });
-      const data = await response.json();
+      setStrapiStatus("Loading pages from Strapi...");
 
-      if (response.ok && data.pages) {
-        console.log("📦 Received pages from backend:", data.pages);
-        setStrapiPages(data.pages);
-        setStrapiStatus(`✅ Loaded ${data.pages.length} pages`);
-      } else {
-        setStrapiStatus("❌ Failed to load pages");
-        setStrapiPages([]);
+      // If it's feature-pages, fetch normally
+      if (selectedStrapiCollection === 'feature-pages') {
+        const response = await fetch(`${API_BASE}/api/fetch-strapi-content`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collection: 'feature-pages' }),
+        });
+        const data = await response.json();
+
+        if (response.ok && data.pages) {
+          console.log("Received pages from backend:", data.pages);
+          // Add collection info to each page
+          const pagesWithCollection = data.pages.map(page => ({
+            ...page,
+            _sourceCollection: 'feature-pages'
+          }));
+          setStrapiPages(pagesWithCollection);
+          setStrapiStatus(`Loaded ${pagesWithCollection.length} pages`);
+        } else {
+          setStrapiStatus("Failed to load pages");
+          setStrapiPages([]);
+        }
+        return;
       }
+
+      // For URL pattern-based categories, fetch from all collections
+      const collectionMappings = {
+        blog: ['topical-authority-pages'],
+        integrations: ['integration-pages', 'integration-to-google-sheets-pages', 'integration-to-looker-studio-pages'],
+        templates: ['template-pages', 'google-sheets-template-pages', 'looker-studio-template-pages'],
+        other: [
+          'seo-pages',
+          'solution-pages',
+          'cluster-pages',
+          'connector-pages',
+          'competitor-comparison-pages',
+          'alternative-pages-v2s',
+          'case-studies',
+          'reporting-tool-pages-v2',
+          'addon-pages',
+          'documents-pages',
+          'other-pages',
+        ]
+      };
+
+      let targetCollections = [];
+
+      if (selectedStrapiCollection === 'url-pattern-blog') {
+        targetCollections = collectionMappings.blog;
+      } else if (selectedStrapiCollection === 'url-pattern-integrations') {
+        targetCollections = collectionMappings.integrations;
+      } else if (selectedStrapiCollection === 'url-pattern-templates') {
+        targetCollections = collectionMappings.templates;
+      } else if (selectedStrapiCollection === 'url-pattern-other') {
+        targetCollections = collectionMappings.other;
+      }
+
+      let allPages = [];
+
+      for (const collection of targetCollections) {
+        try {
+          const response = await fetch(`${API_BASE}/api/fetch-strapi-content`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ collection }),
+          });
+          const data = await response.json();
+          if (response.ok && data.pages) {
+            // Add collection info to each page so we know where it came from
+            const pagesWithCollection = data.pages.map(page => ({
+              ...page,
+              _sourceCollection: collection
+            }));
+            allPages = [...allPages, ...pagesWithCollection];
+          }
+        } catch (err) {
+          console.error(`Error fetching ${collection}:`, err);
+        }
+      }
+
+      console.log("Received pages from backend:", allPages);
+      setStrapiPages(allPages);
+      setStrapiStatus(`Loaded ${allPages.length} pages`);
+
     } catch (err) {
       console.error("Fetch Strapi pages error:", err);
-      setStrapiStatus("❌ Error loading pages");
+      setStrapiStatus("Error loading pages");
       setStrapiPages([]);
     }
   };
 
   const fetchPageDetails = async (pageId) => {
     try {
-      setStrapiStatus("⏳ Fetching page details...");
+      setStrapiStatus("Fetching page details...");
+
+      // Find the selected page to get its source collection
+      const selectedPage = strapiPages.find(p => p.id === parseInt(pageId));
+      const actualCollection = selectedPage?._sourceCollection || selectedStrapiCollection;
+
       const response = await fetch(`${API_BASE}/api/fetch-strapi-content`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          collection: selectedStrapiCollection,
+          collection: actualCollection,
           pageId: pageId
         }),
       });
@@ -98,30 +269,9 @@ export default function ExistingPage() {
       if (response.ok && data.content) {
         setContent(data.content);
         console.log(`Loaded content: ${data.content.length} chars`);
-        const urlToMatch = data.url || data.slug;
-        const collectionToCategoryMap = {
-          'seo-pages': 'SEO Pages',
-          'feature-pages': 'Features Pages',
-          'integration-pages': 'Integrations Page',
-          'template-pages': 'Templates Pages',
-          'google-sheets-template-pages': 'Google Sheets Templates',
-          'looker-studio-template-pages': 'Looker Studio Templates',
-          'solution-pages': 'Solution Pages',
-          'cluster-pages': 'Cluster Pages',
-          'connector-pages': 'Connector Pages',
-          'topical-authority-pages': 'Blogs',
-          'competitor-comparison-pages': 'Competitor Comparison',
-          'alternative-pages-v2s': 'Alternative Pages',
-          'case-studies': 'Case Studies',
-          'reporting-tool-pages-v2': 'Reporting Tool Pages',
-          'addon-pages': 'Addon Pages',
-          'integration-to-google-sheets-pages': 'Integration to Google Sheets',
-          'integration-to-looker-studio-pages': 'Integration to Looker Studio',
-          'documents-pages': 'Documents',
-          'other-pages': 'Other Pages',
-        };
 
-        const categoryName = collectionToCategoryMap[selectedStrapiCollection] || '';
+        const urlToMatch = data.url || data.slug;
+        const categoryName = COLLECTION_TO_CATEGORY_MAP[actualCollection] || '';
 
         if (urlToMatch) {
           try {
@@ -163,20 +313,6 @@ export default function ExistingPage() {
     }
   };
 
-  const fetchInterlinking = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/interlink`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keyword: mainKeyword }),
-      });
-      const data = await response.json();
-      setInterlinks(data.links || []);
-    } catch (err) {
-      console.error("Interlink error:", err);
-    }
-  };
-
   const rephraseFaqs = async (faqs) => {
     try {
       const response = await fetch(`${API_BASE}/api/rephrase-faqs`, {
@@ -204,6 +340,14 @@ export default function ExistingPage() {
     }
   };
 
+  const handleCopyPAA = useCallback((index) => {
+    setCopiedPAAIndex(index);
+  }, []);
+
+  const handleCopyContent = useCallback((index) => {
+    setCopiedContentIndex(index);
+  }, []);
+
   const handleStart = async () => {
     if (!selectedStrapiCollection || !selectedStrapiPage) {
       setError("Please select a Strapi collection and page first.");
@@ -221,29 +365,14 @@ export default function ExistingPage() {
     setSerpQuestions([]);
 
     try {
-      let localContent = "";
-      setStrapiStatus("Fetching page content from Strapi...");
-      const contentResponse = await fetch(`${API_BASE}/api/fetch-strapi-content`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          collection: selectedStrapiCollection,
-          pageId: selectedStrapiPage
-        }),
-      });
-      const contentData = await contentResponse.json();
-      if (!contentData.content || contentData.content.trim().length < 100)
-        throw new Error("Strapi content seems empty or unavailable.");
-      localContent = contentData.content;
-      console.log(`Fetched ${localContent.length} characters from Strapi`);
+      if (!content || content.trim().length < 100) {
+        throw new Error("Content not available. Please select a page first.");
+      }
 
-      setContent(localContent);
-      let allSerpQuestions = [];
       const keywordsToUse = allKeywords.length > 0 ? allKeywords : [mainKeyword];
       const totalKeywords = keywordsToUse.length;
-
+      let allSerpQuestions = [];
       console.log(`Fetching PPA+Google questions for ${totalKeywords} keyword(s)...`);
-
       for (let i = 0; i < keywordsToUse.length; i++) {
         const kw = keywordsToUse[i];
         if (!kw || kw.trim().length === 0) continue;
@@ -277,9 +406,39 @@ export default function ExistingPage() {
           await new Promise(resolve => setTimeout(resolve, 300));
         }
       }
+
       allSerpQuestions = [...new Set(allSerpQuestions)]
         .filter(q => q && q.trim().length > 10)
         .slice(0, 50);
+
+      // Fallback: Generate questions using AI if no SERP questions found
+      if (allSerpQuestions.length === 0) {
+        console.log('No SERP questions found, using AI fallback to generate questions...');
+        setStrapiStatus('No Google questions found. Generating questions using AI...');
+
+        try {
+          const fallbackResponse = await fetch(`${API_BASE}/api/generate-fallback-questions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              keyword: mainKeyword || keywordsToUse[0],
+              content: content.substring(0, 3000) // Limit content length
+            }),
+          });
+
+          if (fallbackResponse.ok) {
+            const fallbackData = await fallbackResponse.json();
+            if (fallbackData.questions && fallbackData.questions.length > 0) {
+              allSerpQuestions = fallbackData.questions;
+              console.log(`✓ Generated ${allSerpQuestions.length} AI fallback questions`);
+              setStrapiStatus(`Generated ${allSerpQuestions.length} AI-generated questions. Creating FAQs...`);
+            }
+          }
+        } catch (fallbackErr) {
+          console.error('Fallback question generation failed:', fallbackErr);
+        }
+      }
+
       setSerpQuestions(allSerpQuestions);
       console.log(`Total unique questions: ${allSerpQuestions.length}`);
       setStrapiStatus(`Found ${allSerpQuestions.length} unique questions from ${totalKeywords} keyword(s). Generating FAQs...`);
@@ -289,13 +448,14 @@ export default function ExistingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           keyword: mainKeyword || keywordsToUse[0],
-          content: localContent,
+          content: content,
           keywordsData
         }),
       });
       const contentFaqData = await contentFaqResponse.json();
       setContentFaqs(contentFaqData.faqs || []);
       console.log(`Generated ${(contentFaqData.faqs || []).length} content-based FAQs`);
+
       if (contentFaqData.faqs && contentFaqData.faqs.length > 0) {
         setStrapiStatus("Rephrasing content FAQs...");
         await rephraseFaqs(contentFaqData.faqs);
@@ -307,7 +467,7 @@ export default function ExistingPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             keyword: mainKeyword || keywordsToUse[0],
-            content: localContent,
+            content: content,
             serpQuestions: allSerpQuestions,
             keywordsData
           }),
@@ -316,9 +476,6 @@ export default function ExistingPage() {
         setFaqs(paaData.faqs || []);
         console.log(`Generated ${(paaData.faqs || []).length} PAA+Google FAQs`);
       }
-      setStrapiStatus("Fetching related links...");
-      await fetchInterlinking();
-
       setStrapiStatus(`FAQ Generation Complete! (${(contentFaqData.faqs || []).length} content FAQs, ${faqs.length} PAA FAQs)`);
     } catch (err) {
       console.error("FAQ Generation error:", err);
@@ -327,7 +484,6 @@ export default function ExistingPage() {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen bg-slate-50 p-8 font-sans">
       {loading && (
@@ -362,18 +518,15 @@ export default function ExistingPage() {
           background: #555;
         }
       `}</style>
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
+      <div className="w-[95%] mx-auto">
         <div className="mb-10 animate-fade-in">
           <h1 className="text-[rgb(230,90,0)] text-3xl md:text-4xl font-extrabold text-center mb-4 tracking-tight">
             Strapi FAQ Generator
           </h1>
-          <p style={{ color: "#475569" }} className="text-center text-lg">
+          <p className="text-[#475569] text-center text-lg">
             Fetch content from Strapi → Generate FAQs
           </p>
         </div>
-
-        {/* Strapi Selection Fields */}
         <div className="grid md:grid-cols-2 gap-4 mb-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
           <div>
             <label className="block font-semibold mb-2 text-gray-700">
@@ -389,7 +542,7 @@ export default function ExistingPage() {
               className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[rgb(230,90,0)] transition-all duration-300 hover:border-[rgb(230,90,0)]"
             >
               <option value="">-- Select Collection --</option>
-              {strapiCollections.map((col) => (
+              {STRAPI_COLLECTIONS.map((col) => (
                 <option key={col.value} value={col.value}>
                   {col.label}
                 </option>
@@ -456,10 +609,10 @@ export default function ExistingPage() {
         )}
 
         {error && <p className="text-red-600 font-semibold mb-4 animate-fade-in">{error}</p>}
+
         {allKeywords.length > 0 && (
           <div className="mb-6 p-4 rounded-lg shadow-sm animate-fade-in transition-all duration-500 hover:shadow-md">
             <h3 className="font-bold text-gray-700 mb-3">Matched Keywords:</h3>
-
             <div className="flex flex-wrap gap-3">
               {allKeywords.map((kw, i) => (
                 <span
@@ -473,8 +626,10 @@ export default function ExistingPage() {
           </div>
         )}
 
-        {(contentFaqs.length > 0 || faqs.length > 0) && (
-          <div className="w-[95%] mx-auto my-10 flex flex-col md:flex-row justify-between items-stretch gap-6 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+        {/* Show FAQ sections after generation, even if empty */}
+        {!loading && (contentFaqs.length > 0 || faqs.length > 0 || (content && allKeywords.length > 0)) && (
+          <div className="w-[95%] mx-auto my-10 flex flex-col md:flex-row justify-between items-stretch gap-1 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+            {/* Content-Based FAQs */}
             <div className="w-full md:w-[48%] flex flex-col bg-white shadow-xl rounded-2xl p-8 transition-all duration-500 hover:shadow-2xl">
               <div className="flex justify-between items-center mb-6 border-b pb-4">
                 <h2 className="text-2xl font-bold text-black">
@@ -483,83 +638,26 @@ export default function ExistingPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                {contentFaqs.map((faq, i) => (
-                  <div key={i} className="border-l-4 border-blue-500 pl-4 mb-8 transition-all duration-300 hover:bg-slate-50 rounded-r-lg p-2">
-                    <h3 className="font-bold text-lg text-black mb-2">
-                      Q{i + 1}: {faq.question}
-                    </h3>
-                    <p
-                      className="text-gray-700 leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: faq.answer }}
+                {contentFaqs.length > 0 ? (
+                  contentFaqs.map((faq, i) => (
+                    <FAQCard
+                      key={i}
+                      faq={faq}
+                      index={i}
+                      copiedIndex={copiedContentIndex}
+                      onCopy={handleCopyContent}
+                      onCopyRephrased={setCopiedContentIndex}
+                      rephrasedData={rephrasedFaqs[i]}
                     />
-
-                    <details className="mt-4 bg-gray-50 rounded-lg p-3 border border-gray-200 group">
-                      <summary className="cursor-pointer font-semibold text-[rgb(255,103,0)] hover:text-[rgb(230,90,0)] transition-colors duration-200 flex items-center gap-2">
-                        <span>View Rephrased Versions</span>
-                        <span className="group-open:rotate-180 transition-transform duration-300">v</span>
-                      </summary>
-
-                      <div className="mt-4 pl-2 space-y-4 text-gray-800 border-t pt-3 animate-fade-in">
-                        {rephrasedFaqs[i]?.rephrased?.version_1 ? (
-                          <>
-                            <div className="bg-white p-3 rounded shadow-sm">
-                              <p className="font-semibold text-sm text-gray-500 mb-1">Version 1</p>
-                              <p className="font-medium mb-1">
-                                {rephrasedFaqs[i].rephrased.version_1?.question || ""}
-                              </p>
-                              <p
-                                className="text-gray-600 text-sm"
-                                dangerouslySetInnerHTML={{
-                                  __html: rephrasedFaqs[i].rephrased.version_1?.answer || "",
-                                }}
-                              />
-                            </div>
-                            <div className="bg-white p-3 rounded shadow-sm">
-                              <p className="font-semibold text-sm text-gray-500 mb-1">Version 2</p>
-                              <p className="font-medium mb-1">
-                                {rephrasedFaqs[i].rephrased.version_2?.question || ""}
-                              </p>
-                              <p
-                                className="text-gray-600 text-sm"
-                                dangerouslySetInnerHTML={{
-                                  __html: rephrasedFaqs[i].rephrased.version_2?.answer || "",
-                                }}
-                              />
-                            </div>
-                          </>
-                        ) : (
-                          <p className="text-gray-500 italic">Loading rephrased versions...</p>
-                        )}
-                      </div>
-                    </details>
-
-                    <button
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(
-                          `Q: ${faq.question}\nA: ${faq.answer}`
-                        );
-                        setCopiedContentIndex(i);
-                        setTimeout(() => setCopiedContentIndex(null), 2000);
-                      }}
-                      className={`mt-4 px-4 py-2 rounded-lg font-semibold text-white transition-all duration-300 transform active:scale-95 ${copiedContentIndex === i
-                        ? "bg-green-600 shadow-inner"
-                        : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)] hover:shadow-md"
-                        }`}
-                    >
-                      {copiedContentIndex === i ? (
-                        <span className="flex items-center gap-2">✓ Copied!</span>
-                      ) : (
-                        <span className="flex items-center gap-2">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                          Copy
-                        </span>
-                      )}
-                    </button>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-lg mb-2">No content-based FAQs generated</p>
+                    <p className="text-sm">Try generating FAQs by clicking "Start Generating FAQs"</p>
                   </div>
-                ))}
+                )}
               </div>
             </div>
-
             <div className="w-full md:w-[48%] flex flex-col bg-white shadow-xl rounded-2xl p-8 transition-all duration-500 hover:shadow-2xl">
               <div className="flex justify-between items-center mb-6 border-b pb-4">
                 <h2 className="text-2xl font-bold text-gray-800">
@@ -568,63 +666,25 @@ export default function ExistingPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                {faqs.map((faq, i) => (
-                  <div key={i} className="border-l-4 border-green-500 pl-4 mb-8 transition-all duration-300 hover:bg-slate-50 rounded-r-lg p-2">
-                    <h3 className="font-bold text-lg text-black mb-2">
-                      Q{i + 1}: {faq.question}
-                    </h3>
-                    <p
-                      className="text-gray-700 leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: faq.answer }}
+                {faqs.length > 0 ? (
+                  faqs.map((faq, i) => (
+                    <FAQCard
+                      key={i}
+                      faq={faq}
+                      index={i}
+                      copiedIndex={copiedPAAIndex}
+                      onCopy={handleCopyPAA}
+                      onCopyRephrased={setCopiedPAAIndex}
                     />
-
-                    <button
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(
-                          `Q: ${faq.question}\nA: ${faq.answer}`
-                        );
-                        setCopiedPAAIndex(i);
-                        setTimeout(() => setCopiedPAAIndex(null), 2000);
-                      }}
-                      className={`mt-4 px-4 py-2 rounded-lg font-semibold text-white transition-all duration-300 transform active:scale-95 ${copiedPAAIndex === i
-                        ? "bg-green-600 shadow-inner"
-                        : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)] hover:shadow-md"
-                        }`}
-                    >
-                      {copiedPAAIndex === i ? (
-                        <span className="flex items-center gap-2">✓ Copied!</span>
-                      ) : (
-                        <span className="flex items-center gap-2">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                          Copy
-                        </span>
-                      )}
-                    </button>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p className="text-lg mb-2">No PAA/Google FAQs found</p>
+                    <p className="text-sm">No related questions were found for this keyword</p>
                   </div>
-                ))}
+                )}
               </div>
             </div>
-          </div>
-        )}
-        {interlinks.length > 0 && (
-          <div className="mt-8 animate-fade-in">
-            <h2 className="text-xl font-bold text-gray-800 mb-3">
-              Related Links
-            </h2>
-            <ul className="list-disc ml-6 text-blue-600">
-              {interlinks.map((link, i) => (
-                <li key={i}>
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
-                  >
-                    {link.title}
-                  </a>
-                </li>
-              ))}
-            </ul>
           </div>
         )}
       </div>

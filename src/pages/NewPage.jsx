@@ -1,6 +1,107 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import LoadingSpinner from "./LoadingSpinner";
-const API_BASE = "http://localhost:5001";
+const API_BASE = process.env.REACT_APP_API_URL
+function FAQCard({ faq, index, copiedIndex, onCopy, rephrasedData, onCopyRephrased }) {
+  return (
+    <div className="border-l-4 pl-4 mb-6">
+      <h3 className="font-bold text-black">
+        Q{index + 1}: {faq.question}
+      </h3>
+      <p
+        className="text-black mt-2"
+        dangerouslySetInnerHTML={{ __html: faq.answer }}
+      />
+
+      {rephrasedData && (
+        <details className="mt-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
+          <summary className="cursor-pointer font-semibold text-[rgb(255,103,0)]">
+            View Rephrased Versions
+          </summary>
+
+          <div className="mt-3 pl-2 space-y-4 text-gray-800">
+            {rephrasedData?.rephrased?.version_1 ? (
+              <>
+                <div className="flex justify-between items-start bg-white p-3 rounded-md shadow-sm border border-gray-200">
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">
+                      Q1: {rephrasedData.rephrased.version_1?.question || ""}
+                    </p>
+                    <p
+                      className="text-sm leading-relaxed mt-1"
+                      dangerouslySetInnerHTML={{
+                        __html: rephrasedData.rephrased.version_1?.answer || "",
+                      }}
+                    />
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const text = `Q: ${rephrasedData.rephrased.version_1?.question || ""}\\nA: ${rephrasedData.rephrased.version_1?.answer || ""}`;
+                      await navigator.clipboard.writeText(text);
+                      onCopyRephrased(`v1-${index}`);
+                      setTimeout(() => onCopyRephrased(null), 2000);
+                    }}
+                    className={`ml-4 px-3 py-1 rounded-md text-sm font-semibold text-white transition ${copiedIndex === `v1-${index}`
+                      ? "bg-[rgb(255,103,0)]"
+                      : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
+                      }`}
+                  >
+                    {copiedIndex === `v1-${index}` ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+
+                <div className="flex justify-between items-start bg-white p-3 rounded-md shadow-sm border border-gray-200">
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">
+                      Q2: {rephrasedData.rephrased.version_2?.question || ""}
+                    </p>
+                    <p
+                      className="text-sm leading-relaxed mt-1"
+                      dangerouslySetInnerHTML={{
+                        __html: rephrasedData.rephrased.version_2?.answer || "",
+                      }}
+                    />
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const text = `Q: ${rephrasedData.rephrased.version_2?.question || ""}\\nA: ${rephrasedData.rephrased.version_2?.answer || ""}`;
+                      await navigator.clipboard.writeText(text);
+                      onCopyRephrased(`v2-${index}`);
+                      setTimeout(() => onCopyRephrased(null), 2000);
+                    }}
+                    className={`ml-4 px-3 py-1 rounded-md text-sm font-semibold text-white transition ${copiedIndex === `v2-${index}`
+                      ? "bg-[rgb(255,103,0)]"
+                      : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
+                      }`}
+                  >
+                    {copiedIndex === `v2-${index}` ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-gray-500 italic">
+                Rephrased versions are not yet available.
+              </p>
+            )}
+          </div>
+        </details>
+      )}
+
+      <button
+        onClick={async () => {
+          await navigator.clipboard.writeText(`Q: ${faq.question}\\nA: ${faq.answer}`);
+          onCopy(index);
+          setTimeout(() => onCopy(null), 2000);
+        }}
+        className={`mt-3 px-4 py-2 rounded-lg font-semibold text-white transition ${copiedIndex === index
+          ? "bg-[rgb(255,103,0)]"
+          : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
+          }`}
+      >
+        {copiedIndex === index ? "Copied!" : "Copy"}
+      </button>
+    </div>
+  );
+}
 
 export default function App() {
   const [keyword, setKeyword] = useState("");
@@ -12,7 +113,6 @@ export default function App() {
   const [strapiKeywords, setStrapiKeywords] = useState([]);
   const [autoShowFaqs, setAutoShowFaqs] = useState(false);
   const [strapiStatus, setStrapiStatus] = useState("");
-  const [allCopied, setAllCopied] = useState(false);
   const [contentFaqs, setContentFaqs] = useState([]);
   const [copiedPAAIndex, setCopiedPAAIndex] = useState(null);
   const [copiedContentIndex, setCopiedContentIndex] = useState(null);
@@ -21,7 +121,7 @@ export default function App() {
   const fetchStrapiKeywords = async () => {
     try {
       setStrapiStatus("⏳ Fetching keywords from Strapi...");
-      const response = await fetch("http://localhost:5001/strapi/faq");
+      const response = await fetch(`${API_BASE}/strapi/faq`);
       const data = await response.json();
 
       if (response.ok) {
@@ -37,7 +137,6 @@ export default function App() {
       setStrapiStatus("❌ Failed to fetch keywords from Strapi.");
     }
   };
-
 
   const fetchSerpQuestions = async () => {
     if (!keyword.trim()) {
@@ -69,6 +168,7 @@ export default function App() {
       setLoading(false);
     }
   };
+
   const generateFaqs = async (questions = serpQuestions) => {
     if (!content.trim()) {
       setError("Please provide content to generate FAQs.");
@@ -101,6 +201,7 @@ export default function App() {
       setLoading(false);
     }
   };
+
   const generateContentFaqs = async () => {
     if (!content.trim()) {
       setError("Please provide content to generate content-based FAQs.");
@@ -119,7 +220,6 @@ export default function App() {
       if (data.faqs && data.faqs.length > 0) {
         setContentFaqs(data.faqs);
 
-        // 🔁 Step 1: Rephrase FAQs
         const rephraseResponse = await fetch(`${API_BASE}/api/rephrase-faqs`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -129,7 +229,6 @@ export default function App() {
         const rephrased = await rephraseResponse.json();
         setRephrasedFaqs(rephrased);
 
-        // 🔗 Step 2: Interlink rephrased FAQs with Strapi keywords
         if (strapiKeywords && Object.keys(strapiKeywords).length > 0) {
           const interlinkResponse = await fetch(`${API_BASE}/api/interlink-faqs`, {
             method: "POST",
@@ -158,6 +257,7 @@ export default function App() {
       console.error("Content-based FAQ error:", err);
     }
   };
+
   const reset = () => {
     setKeyword("");
     setContent("");
@@ -168,9 +268,16 @@ export default function App() {
     setContentFaqs([]);
   };
 
+  const handleCopyPAA = useCallback((index) => {
+    setCopiedPAAIndex(index);
+  }, []);
+
+  const handleCopyContent = useCallback((index) => {
+    setCopiedContentIndex(index);
+  }, []);
+
   return (
-    <div style={{ minHeight: "100vh", background: "#eef2ff", padding: "2rem" }}>
-      {/* Animated Loading Spinner Overlay */}
+    <div className="min-h-screen bg-[#eef2ff] p-8">
       {loading && (
         <LoadingSpinner
           text={strapiStatus || "Generating FAQs..."}
@@ -181,142 +288,65 @@ export default function App() {
         />
       )}
       <div className="w-[95%] mx-auto">
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+        <div className="text-center mb-8">
           <h1 className="text-[rgb(230,90,0)] text-3xl md:text-4xl font-extrabold text-center mb-4 tracking-tight">
             Content-Based FAQ Generator
           </h1>
-
-          <p style={{ color: "#475569" }}>
+          <p className="text-[#475569]">
             Fetch Google questions → Generate content-based FAQs
           </p>
         </div>
 
         {faqs.length === 0 && (
-          <div
-            style={{
-              background: "white",
-              borderRadius: "1rem",
-              padding: "2rem",
-              boxShadow: "0 3px 6px rgba(0,0,0,0.1)",
-            }}
-          >
-            <label
-              style={{
-                display: "block",
-                fontWeight: 600,
-                marginBottom: "0.5rem",
-              }}
-            >
-              Keyword
-            </label>
+          <div className="bg-white rounded-2xl p-8 shadow-md">
+            <label className="block font-semibold mb-2">Keyword</label>
             <input
               type="text"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="e.g., marketing reporting software"
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                marginBottom: "1.5rem",
-                borderRadius: "0.5rem",
-                border: "1px solid #cbd5e1",
-              }}
+              className="w-full p-3 mb-6 rounded-lg border border-gray-300"
             />
 
-            <label
-              style={{
-                display: "block",
-                fontWeight: 600,
-                marginBottom: "0.5rem",
-              }}
-            >
-              Content
-            </label>
+            <label className="block font-semibold mb-2">Content</label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Paste your content here..."
               rows={8}
-              style={{
-                width: "100%",
-                padding: "0.75rem",
-                borderRadius: "0.5rem",
-                border: "1px solid #cbd5e1",
-                fontFamily: "monospace",
-              }}
+              className="w-full p-3 rounded-lg border border-gray-300 font-mono"
             />
 
-            <div
-              style={{
-                textAlign: "right",
-                marginTop: "1.5rem",
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "1rem",
-              }}
-            >
+            <div className="text-right mt-6 flex justify-end gap-4">
               <button
                 onClick={fetchStrapiKeywords}
                 disabled={loading}
-                style={{
-                  padding: "0.75rem 1.5rem",
-                  background: "#22c55e",
-                  color: "white",
-                  fontWeight: "600",
-                  border: "none",
-                  borderRadius: "0.5rem",
-                  marginLeft: "1rem",
-                  cursor: "pointer",
-                }}
+                className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50"
               >
                 Fetch Keywords from Strapi
               </button>
 
-
               <button
                 onClick={fetchSerpQuestions}
                 disabled={loading}
-                style={{
-                  padding: "0.75rem 1.5rem",
-                  background: "#3b82f6",
-                  color: "white",
-                  fontWeight: "600",
-                  border: "none",
-                  borderRadius: "0.5rem",
-                  cursor: "pointer",
-                }}
+                className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading ? "Processing..." : "Start Generating FAQs"}
               </button>
             </div>
+
             {strapiStatus && (
-              <div
-                style={{
-                  marginTop: "1rem",
-                  fontWeight: 600,
-                  color: strapiStatus.startsWith("✅")
-                    ? "green"
-                    : strapiStatus.startsWith(" ")
-                      ? "#f59e0b"
-                      : strapiStatus.startsWith(" ")
-                        ? "red"
-                        : "#475569",
-                }}
-              >
+              <div className={`mt-4 font-semibold ${strapiStatus.startsWith("✅") ? "text-green-600" :
+                strapiStatus.startsWith("⚠️") ? "text-amber-600" :
+                  strapiStatus.startsWith("❌") ? "text-red-600" :
+                    "text-gray-600"
+                }`}>
                 {strapiStatus}
               </div>
             )}
 
-
-
             {error && (
-              <div
-                style={{
-                  marginTop: "1rem",
-                  color: "#b91c1c",
-                  fontWeight: "500",
-                }}
-              >
+              <div className="mt-4 text-red-600 font-medium">
                 {error}
               </div>
             )}
@@ -324,53 +354,24 @@ export default function App() {
         )}
 
         {!autoShowFaqs && serpQuestions.length > 0 && faqs.length === 0 && (
-          <div
-            style={{
-              background: "white",
-              borderRadius: "1rem",
-              padding: "2rem",
-              marginTop: "2rem",
-              boxShadow: "0 3px 6px rgba(190, 141, 141, 0.39)",
-            }}
-          >
-            <h2
-              style={{
-                fontSize: "1.5rem",
-                fontWeight: "bold",
-                color: "#0f0d0dff",
-                marginBottom: "1rem",
-              }}
-            >
+          <div className="bg-white rounded-2xl p-8 mt-8 shadow-md">
+            <h2 className="text-2xl font-bold text-black mb-4">
               These are the fetched Google questions, wait for a minute working else try again.
             </h2>
-            <ul style={{ listStyle: "none", padding: 0 }}>
+            <ul className="list-none p-0">
               {serpQuestions.map((q, i) => (
                 <li
                   key={i}
-                  style={{
-                    background: "#ffffffff",
-                    margin: "0.5rem 0",
-                    padding: "0.75rem",
-                    borderRadius: "0.5rem",
-                    borderLeft: "4px solid #f39595ff",
-                    color: "#080808ff",
-                  }}
+                  className="bg-white my-2 p-3 rounded-lg border-l-4 border-red-300 text-black"
                 >
                   <b>{i + 1}.</b> {q}
                 </li>
               ))}
             </ul>
-            <div style={{ marginTop: "1.5rem", textAlign: "right" }}>
+            <div className="mt-6 text-right">
               <button
                 onClick={reset}
-                style={{
-                  padding: "0.75rem 1.5rem",
-                  background: "#ef4444",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "0.5rem",
-                  fontWeight: "600",
-                }}
+                className="px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700"
               >
                 Reset
               </button>
@@ -389,17 +390,16 @@ export default function App() {
                   onClick={async () => {
                     await navigator.clipboard.writeText(
                       contentFaqs
-                        .map((f) => `Q: ${f.question}\nA: ${f.answer}`)
-                        .join("\n\n")
+                        .map((f) => `Q: ${f.question}\\nA: ${f.answer}`)
+                        .join("\\n\\n")
                     );
                     setCopiedContentIndex("all");
                     setTimeout(() => setCopiedContentIndex(null), 2000);
                   }}
                   className={`px-4 py-2 rounded-lg font-semibold text-white transition ${copiedContentIndex === "all"
-                      ? "bg-[rgb(255,103,0)]"
-                      : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
+                    ? "bg-[rgb(255,103,0)]"
+                    : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
                     }`}
-
                 >
                   {copiedContentIndex === "all" ? "Copied!" : "Copy"}
                 </button>
@@ -409,119 +409,20 @@ export default function App() {
                 {(contentFaqs || [])
                   .filter((faq) => faq && faq.question && faq.answer)
                   .map((faq, i) => (
-                    <div key={i} className="border-l-4 pl-4 mb-6">
-                      <h3 className="font-bold text-black">
-                        Q{i + 1}: {faq.question}
-                      </h3>
-
-                      {/* ✅ Use dangerouslySetInnerHTML so interlinked <a> tags render as clickable */}
-                      <p
-                        className="text-black mt-2"
-                        dangerouslySetInnerHTML={{ __html: faq.answer }}
-                      />
-
-                      <details className="mt-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
-                        <summary className="cursor-pointer font-semibold text-[rgb(255,103,0)]">
-                          View Rephrased Versions
-                        </summary>
-
-                        <div className="mt-3 pl-2 space-y-4 text-gray-800">
-                          {rephrasedFaqs[i]?.rephrased ? (
-                            <>
-                              {/* Version 1 */}
-                              <div className="flex justify-between items-start bg-white p-3 rounded-md shadow-sm border border-gray-200">
-                                <div className="flex-1">
-                                  <p className="font-semibold text-gray-900">
-                                    Q1: {rephrasedFaqs[i].rephrased.version_1?.question || ""}
-                                  </p>
-                                  <p
-                                    className="text-sm leading-relaxed mt-1"
-                                    dangerouslySetInnerHTML={{
-                                      __html:
-                                        rephrasedFaqs[i].rephrased.version_1?.answer || "",
-                                    }}
-                                  />
-                                </div>
-                                <button
-                                  onClick={async () => {
-                                    const text = `Q: ${rephrasedFaqs[i].rephrased.version_1?.question || ""
-                                      }\nA: ${rephrasedFaqs[i].rephrased.version_1?.answer || ""
-                                      }`;
-                                    await navigator.clipboard.writeText(text);
-                                    setCopiedContentIndex(`v1-${i}`);
-                                    setTimeout(() => setCopiedContentIndex(null), 2000);
-                                  }}
-                                  className={`ml-4 px-3 py-1 rounded-md text-sm font-semibold text-white transition ${copiedContentIndex === `v1-${i}`
-                                      ? "bg-[rgb(255,103,0)]"
-                                      : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
-                                    }`}
-                                >
-                                  {copiedContentIndex === `v1-${i}` ? "Copied!" : "Copy"}
-                                </button>
-                              </div>
-
-                              {/* Version 2 */}
-                              <div className="flex justify-between items-start bg-white p-3 rounded-md shadow-sm border border-gray-200">
-                                <div className="flex-1">
-                                  <p className="font-semibold text-gray-900">
-                                    Q2: {rephrasedFaqs[i].rephrased.version_2?.question || ""}
-                                  </p>
-                                  <p
-                                    className="text-sm leading-relaxed mt-1"
-                                    dangerouslySetInnerHTML={{
-                                      __html:
-                                        rephrasedFaqs[i].rephrased.version_2?.answer || "",
-                                    }}
-                                  />
-                                </div>
-                                <button
-                                  onClick={async () => {
-                                    const text = `Q: ${rephrasedFaqs[i].rephrased.version_2?.question || ""
-                                      }\nA: ${rephrasedFaqs[i].rephrased.version_2?.answer || ""
-                                      }`;
-                                    await navigator.clipboard.writeText(text);
-                                    setCopiedContentIndex(`v2-${i}`);
-                                    setTimeout(() => setCopiedContentIndex(null), 2000);
-                                  }}
-                                  className={`ml-4 px-3 py-1 rounded-md text-sm font-semibold text-white transition ${copiedContentIndex === `v2-${i}`
-                                      ? "bg-[rgb(255,103,0)]"
-                                      : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
-                                    }`}
-                                >
-                                  {copiedContentIndex === `v2-${i}` ? "Copied!" : "Copy"}
-                                </button>
-                              </div>
-                            </>
-                          ) : (
-                            <p className="text-gray-500 italic">
-                              Rephrased versions are not yet available.
-                            </p>
-                          )}
-                        </div>
-                      </details>
-
-                      <button
-                        onClick={async () => {
-                          await navigator.clipboard.writeText(
-                            `Q: ${faq.question}\nA: ${faq.answer}`
-                          );
-                          setCopiedContentIndex(i);
-                          setTimeout(() => setCopiedContentIndex(null), 2000);
-                        }}
-                        className={`mt-3 px-4 py-2 rounded-lg font-semibold text-white transition ${copiedContentIndex === i
-                            ? "bg-[rgb(255,103,0)]"
-                            : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
-                          }`}
-                      >
-                        {copiedContentIndex === i ? "Copied!" : "Copy"}
-                      </button>
-                    </div>
+                    <FAQCard
+                      key={i}
+                      faq={faq}
+                      index={i}
+                      copiedIndex={copiedContentIndex}
+                      onCopy={handleCopyContent}
+                      onCopyRephrased={setCopiedContentIndex}
+                      rephrasedData={rephrasedFaqs[i]}
+                    />
                   ))}
-
-
               </div>
             </div>
-            <div className="w-full md:w-[48%] flex flex-col bg-white shadow-xl rounded-2xl p-8 ">
+
+            <div className="w-full md:w-[48%] flex flex-col bg-white shadow-xl rounded-2xl p-8">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">
                   PAA + Google FAQs ({faqs.length})
@@ -529,14 +430,14 @@ export default function App() {
                 <button
                   onClick={async () => {
                     await navigator.clipboard.writeText(
-                      faqs.map((f) => `Q: ${f.question}\nA: ${f.answer}`).join("\n\n")
+                      faqs.map((f) => `Q: ${f.question}\\nA: ${f.answer}`).join("\\n\\n")
                     );
                     setCopiedPAAIndex("all");
                     setTimeout(() => setCopiedPAAIndex(null), 2000);
                   }}
-                  className={`px-4 py-2 rounded-lg font-semibold text-white transition ${copiedContentIndex === "all"
-                      ? "bg-[rgb(255,103,0)]"
-                      : "bg-[rgb(255,103,0)] hover:bg-[rgba(230, 154, 154, 1)]"
+                  className={`px-4 py-2 rounded-lg font-semibold text-white transition ${copiedPAAIndex === "all"
+                    ? "bg-[rgb(255,103,0)]"
+                    : "bg-[rgb(255,103,0)] hover:bg-[rgba(230, 154, 154, 1)]"
                     }`}
                 >
                   {copiedPAAIndex === "all" ? "Copied!" : "Copy"}
@@ -545,33 +446,19 @@ export default function App() {
 
               <div className="flex-1 overflow-y-auto">
                 {faqs.map((faq, i) => (
-                  <div key={i} className="border-l-4  pl-4 mb-6">
-                    <h3 className="font-bold text-black">
-                      Q{i + 1}: {faq.question}
-                    </h3>
-                    <p className="text-slate-800 mt-2">{faq.answer}</p>
-                    <button
-                      onClick={async () => {
-                        await navigator.clipboard.writeText(
-                          `Q: ${faq.question}\nA: ${faq.answer}`
-                        );
-                        setCopiedPAAIndex(i);
-                        setTimeout(() => setCopiedPAAIndex(null), 2000);
-                      }}
-                      className={`px-4 py-2 rounded-lg font-semibold text-white transition ${copiedContentIndex === "all"
-                          ? "bg-[rgb(255,103,0)]"
-                          : "bg-[rgb(255,103,0)] hover:bg-[rgba(230, 154, 154, 1)]"
-                        }`}
-                    >
-                      {copiedPAAIndex === i ? "Copied!" : "Copy"}
-                    </button>
-                  </div>
+                  <FAQCard
+                    key={i}
+                    faq={faq}
+                    index={i}
+                    copiedIndex={copiedPAAIndex}
+                    onCopy={handleCopyPAA}
+                    onCopyRephrased={setCopiedPAAIndex}
+                  />
                 ))}
               </div>
             </div>
           </div>
         )}
-
       </div>
     </div>
   );
