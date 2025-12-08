@@ -299,7 +299,6 @@ export default function ExistingPage() {
       console.log("Received pages from backend:", allPages);
       setStrapiPages(allPages);
       setStrapiStatus(`Loaded ${allPages.length} pages`);
-      // Cache the result
       setCachedData(cacheKey, allPages);
 
     } catch (err) {
@@ -638,6 +637,10 @@ export default function ExistingPage() {
                 setSelectedStrapiPage("");
                 setStrapiPages([]);
                 setError(""); // Clear error on selection change
+                // Clear generated FAQs
+                setContentFaqs([]);
+                setFaqs([]);
+                setRephrasedFaqs([]);
               }}
               className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[rgb(230,90,0)] transition-all duration-300 hover:border-[rgb(230,90,0)]"
             >
@@ -663,6 +666,11 @@ export default function ExistingPage() {
                 setAllKeywords([]);
                 setStrapiStatus("");
                 setError(""); // Clear error on selection change
+                // Clear generated FAQs
+                setContentFaqs([]);
+                setFaqs([]);
+                setRephrasedFaqs([]);
+
                 if (e.target.value) {
                   fetchPageDetails(e.target.value);
                 }
