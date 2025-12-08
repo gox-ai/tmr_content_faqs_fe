@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import LoadingSpinner from "./LoadingSpinner";
+import { getCachedData, setCachedData } from "../utils/cacheUtils";
 
 const API_BASE = process.env.REACT_APP_API_URL
 const STRAPI_COLLECTIONS = [
@@ -24,10 +25,7 @@ function FAQCard({ faq, index, copiedIndex, onCopy, rephrasedData, onCopyRephras
       <h3 className="font-bold text-black">
         Q{index + 1}: {faq.question}
       </h3>
-      <p
-        className="text-black mt-2"
-        dangerouslySetInnerHTML={{ __html: faq.answer }}
-      />
+      <p className="text-black mt-2" dangerouslySetInnerHTML={{ __html: faq.answer }} />
 
       {rephrasedData && (
         <details className="mt-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
@@ -43,12 +41,7 @@ function FAQCard({ faq, index, copiedIndex, onCopy, rephrasedData, onCopyRephras
                     <p className="font-semibold text-gray-900">
                       Q1: {rephrasedData.rephrased.version_1?.question || ""}
                     </p>
-                    <p
-                      className="text-sm leading-relaxed mt-1"
-                      dangerouslySetInnerHTML={{
-                        __html: rephrasedData.rephrased.version_1?.answer || "",
-                      }}
-                    />
+                    <p className="text-sm leading-relaxed mt-1" dangerouslySetInnerHTML={{ __html: rephrasedData.rephrased.version_1?.answer || "" }} />
                   </div>
                   <button
                     onClick={async () => {
@@ -70,12 +63,7 @@ function FAQCard({ faq, index, copiedIndex, onCopy, rephrasedData, onCopyRephras
                     <p className="font-semibold text-gray-900">
                       Q2: {rephrasedData.rephrased.version_2?.question || ""}
                     </p>
-                    <p
-                      className="text-sm leading-relaxed mt-1"
-                      dangerouslySetInnerHTML={{
-                        __html: rephrasedData.rephrased.version_2?.answer || "",
-                      }}
-                    />
+                    <p className="text-sm leading-relaxed mt-1" dangerouslySetInnerHTML={{ __html: rephrasedData.rephrased.version_2?.answer || "" }} />
                   </div>
                   <button
                     onClick={async () => {
@@ -119,6 +107,14 @@ function FAQCard({ faq, index, copiedIndex, onCopy, rephrasedData, onCopyRephras
   );
 }
 
+// Helper function to strip HTML tags from text
+const stripHtml = (html) => {
+  if (!html) return '';
+  const tmp = document.createElement('DIV');
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || '';
+};
+
 export default function ExistingPage() {
   const [mainKeyword, setMainKeyword] = useState("");
   const [allKeywords, setAllKeywords] = useState([]);
@@ -138,23 +134,89 @@ export default function ExistingPage() {
   const [selectedStrapiPage, setSelectedStrapiPage] = useState("");
 
   useEffect(() => {
-    fetch('/keywords.json')
-      .then(res => res.json())
-      .then(data => {
-        console.log("Loaded keywords.json for interlinking");
-        setKeywordsData(data);
-      })
-      .catch(err => console.error("Failed to load keywords.json", err));
+    const loadKeywords = async () => {
+      // Try to load from cache first
+      const cachedKeywords = getCachedData('keywords_json');
+      if (cachedKeywords && Object.keys(cachedKeywords).length > 0) {
+        console.log("✅ Loaded keywords.json from cache");
+        setKeywordsData(cachedKeywords);
+        return;
+      }
+
+      // Try to fetch from file
+      try {
+        const res = await fetch('/keywords.json');
+        if (!res.ok) {
+          throw new Error('keywords.json not found');
+        }
+
+        const data = await res.json();
+
+        // Check if keywords.json is empty or has no data
+        const isEmpty = !data || Object.keys(data).length === 0 ||
+          Object.values(data).every(arr => Array.isArray(arr) && arr.length === 0);
+
+        if (isEmpty) {
+          console.log("⚠️ keywords.json is empty, fetching from Strapi immediately...");
+          await fetchKeywordsFromStrapi();
+        } else {
+          console.log("Loaded keywords.json from file");
+          setKeywordsData(data);
+          setCachedData('keywords_json', data);
+        }
+      } catch (err) {
+        console.error("Failed to load keywords.json:", err);
+        console.log("⚠️ File not found, fetching keywords from Strapi immediately...");
+        await fetchKeywordsFromStrapi();
+      }
+    };
+
+    loadKeywords();
   }, []);
+
+  const fetchKeywordsFromStrapi = async () => {
+    try {
+      setStrapiStatus("⏳ Fetching keywords from Strapi...");
+      const response = await fetch(`${API_BASE}/strapi/faq`);
+      const data = await response.json();
+
+      if (response.ok && data.result) {
+        console.log("✅ Keywords fetched from Strapi and saved to keywords.json");
+        setKeywordsData(data.result);
+        setCachedData('keywords_json', data.result);
+        setStrapiStatus("✅ Keywords loaded from Strapi");
+      } else {
+        console.error("⚠️ Failed to fetch keywords from Strapi");
+        setStrapiStatus("");
+      }
+    } catch (err) {
+      console.error("❌ Error fetching keywords from Strapi:", err);
+      setStrapiStatus("");
+    }
+  };
 
   useEffect(() => {
     if (selectedStrapiCollection) {
       fetchStrapiPages();
+    } else {
+      // Clear pages when collection is deselected
+      setStrapiPages([]);
     }
   }, [selectedStrapiCollection]);
 
   const fetchStrapiPages = async () => {
     try {
+      // Check cache first
+      const cacheKey = `strapi_pages_${selectedStrapiCollection}`;
+      const cachedPages = getCachedData(cacheKey);
+
+      if (cachedPages) {
+        console.log(`✅ Using cached pages for ${selectedStrapiCollection}`);
+        setStrapiPages(cachedPages);
+        setStrapiStatus(`Loaded ${cachedPages.length} pages (from cache)`);
+        return;
+      }
+
       setStrapiStatus("Loading pages from Strapi...");
 
       // If it's feature-pages, fetch normally
@@ -175,14 +237,14 @@ export default function ExistingPage() {
           }));
           setStrapiPages(pagesWithCollection);
           setStrapiStatus(`Loaded ${pagesWithCollection.length} pages`);
+          // Cache the result
+          setCachedData(cacheKey, pagesWithCollection);
         } else {
           setStrapiStatus("Failed to load pages");
           setStrapiPages([]);
         }
         return;
       }
-
-      // For URL pattern-based categories, fetch from all collections
       const collectionMappings = {
         blog: ['topical-authority-pages'],
         integrations: ['integration-pages', 'integration-to-google-sheets-pages', 'integration-to-looker-studio-pages'],
@@ -201,9 +263,7 @@ export default function ExistingPage() {
           'other-pages',
         ]
       };
-
       let targetCollections = [];
-
       if (selectedStrapiCollection === 'url-pattern-blog') {
         targetCollections = collectionMappings.blog;
       } else if (selectedStrapiCollection === 'url-pattern-integrations') {
@@ -225,7 +285,6 @@ export default function ExistingPage() {
           });
           const data = await response.json();
           if (response.ok && data.pages) {
-            // Add collection info to each page so we know where it came from
             const pagesWithCollection = data.pages.map(page => ({
               ...page,
               _sourceCollection: collection
@@ -240,6 +299,8 @@ export default function ExistingPage() {
       console.log("Received pages from backend:", allPages);
       setStrapiPages(allPages);
       setStrapiStatus(`Loaded ${allPages.length} pages`);
+      // Cache the result
+      setCachedData(cacheKey, allPages);
 
     } catch (err) {
       console.error("Fetch Strapi pages error:", err);
@@ -250,9 +311,20 @@ export default function ExistingPage() {
 
   const fetchPageDetails = async (pageId) => {
     try {
-      setStrapiStatus("Fetching page details...");
+      // Check cache first
+      const cacheKey = `page_details_${pageId}`;
+      const cachedPageDetails = getCachedData(cacheKey);
 
-      // Find the selected page to get its source collection
+      if (cachedPageDetails) {
+        console.log(`Using cached page details for page ${pageId}`);
+        setContent(cachedPageDetails.content);
+        setMainKeyword(cachedPageDetails.mainKeyword || "");
+        setAllKeywords(cachedPageDetails.allKeywords || []);
+        setStrapiStatus(cachedPageDetails.status + " (from cache)");
+        return;
+      }
+
+      setStrapiStatus("Fetching page details...");
       const selectedPage = strapiPages.find(p => p.id === parseInt(pageId));
       const actualCollection = selectedPage?._sourceCollection || selectedStrapiCollection;
 
@@ -287,11 +359,33 @@ export default function ExistingPage() {
             });
             const keywordData = await keywordResponse.json();
 
-            if (keywordData.keywords && keywordData.keywords.length > 0) {
-              setMainKeyword(keywordData.keyword || keywordData.keywords[0]);
-              setAllKeywords(keywordData.keywords);
-              setStrapiStatus(`Loaded content & matched ${keywordData.keywords.length} keyword(s) from "${keywordData.category}"`);
-              console.log(`Auto-matched keywords:`, keywordData.keywords);
+            if (keywordResponse.ok && keywordData.keywords && keywordData.keywords.length > 0) {
+              const mainKw = keywordData.keyword || keywordData.keywords[0];
+              const allKws = keywordData.keywords;
+              const status = `Loaded content & matched ${keywordData.keywords.length} keyword(s) from "${keywordData.category}"`;
+
+              setMainKeyword(mainKw);
+              setAllKeywords(allKws);
+              setStrapiStatus(status);
+              console.log(`Auto-matched keywords:`, allKws);
+
+              // Cache the page details
+              setCachedData(cacheKey, {
+                content: data.content,
+                mainKeyword: mainKw,
+                allKeywords: allKws,
+                status: status
+              });
+            } else if (keywordResponse.status === 404 || keywordData.notFound) {
+              // Page not found in keywords.json
+              const errorMsg = keywordData.message || "No keywords found for this page in keywords.json. Please add this page to keywords.json or fetch keywords from Strapi.";
+              setStrapiStatus(`⚠️ ${keywordData.message || 'Page not found in keywords.json'}`);
+              setMainKeyword("");
+              setAllKeywords([]);
+              setError(errorMsg);
+              console.warn(`❌ Page "${data.slug}" not found in keywords.json`);
+
+              // Don't cache when there's an error
             } else {
               setStrapiStatus("Loaded content (no matching keyword found in keywords.json)");
               setMainKeyword("");
@@ -305,11 +399,16 @@ export default function ExistingPage() {
           setStrapiStatus("Loaded content (no URL/slug available for keyword matching)");
         }
       } else {
-        setStrapiStatus("Failed to load page details");
+        const errorMsg = data.error || data.message || "Failed to load page details";
+        console.error("Backend error:", data);
+        setStrapiStatus(`Error: ${errorMsg}`);
+        setError(errorMsg);
       }
     } catch (err) {
       console.error("Fetch details error:", err);
-      setStrapiStatus("Error loading details");
+      const errorMsg = err.message || "Error loading details";
+      setStrapiStatus(`Error: ${errorMsg}`);
+      setError(`Failed to load page details: ${errorMsg}`);
     }
   };
 
@@ -538,6 +637,7 @@ export default function ExistingPage() {
                 setSelectedStrapiCollection(e.target.value);
                 setSelectedStrapiPage("");
                 setStrapiPages([]);
+                setError(""); // Clear error on selection change
               }}
               className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[rgb(230,90,0)] transition-all duration-300 hover:border-[rgb(230,90,0)]"
             >
@@ -562,6 +662,7 @@ export default function ExistingPage() {
                 setMainKeyword("");
                 setAllKeywords([]);
                 setStrapiStatus("");
+                setError(""); // Clear error on selection change
                 if (e.target.value) {
                   fetchPageDetails(e.target.value);
                 }
@@ -570,11 +671,18 @@ export default function ExistingPage() {
               className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[rgb(230,90,0)] disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 hover:border-[rgb(230,90,0)]"
             >
               <option value="">-- Select Page --</option>
-              {strapiPages.map((page, i) => (
-                <option key={i} value={page.id}>
-                  {(page.title || page.meta_data_title || page.slug || `Page ${page.id}`) + (page.slug ? ` (${page.slug})` : '')}
-                </option>
-              ))}
+              {strapiPages.map((page, i) => {
+                // Get the title and strip HTML tags
+                const rawTitle = page.meta_data_title || page.title || page.slug || `Page ${page.id}`;
+                const cleanTitle = stripHtml(rawTitle);
+                const displayText = cleanTitle + (page.slug ? ` (${page.slug})` : '');
+
+                return (
+                  <option key={i} value={page.id}>
+                    {displayText}
+                  </option>
+                );
+              })}
             </select>
           </div>
         </div>
@@ -582,7 +690,7 @@ export default function ExistingPage() {
         <div className="flex justify-end gap-3 mb-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
           <button
             onClick={handleStart}
-            disabled={loading}
+            disabled={loading || error !== ""}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
           >
             {loading ? (
@@ -626,8 +734,8 @@ export default function ExistingPage() {
           </div>
         )}
 
-        {/* Show FAQ sections after generation, even if empty */}
-        {!loading && (contentFaqs.length > 0 || faqs.length > 0 || (content && allKeywords.length > 0)) && (
+        {/* Show FAQ sections only after FAQs are generated */}
+        {!loading && (contentFaqs.length > 0 || faqs.length > 0) && (
           <div className="w-[95%] mx-auto my-10 flex flex-col md:flex-row justify-between items-stretch gap-1 animate-fade-in" style={{ animationDelay: '0.3s' }}>
             {/* Content-Based FAQs */}
             <div className="w-full md:w-[48%] flex flex-col bg-white shadow-xl rounded-2xl p-8 transition-all duration-500 hover:shadow-2xl">

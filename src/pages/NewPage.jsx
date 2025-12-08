@@ -1,16 +1,13 @@
 import React, { useState, useCallback } from "react";
 import LoadingSpinner from "./LoadingSpinner";
-const API_BASE = process.env.REACT_APP_API_URL
+import { getCachedData, setCachedData, getCacheAge } from "../utils/cacheUtils";
 function FAQCard({ faq, index, copiedIndex, onCopy, rephrasedData, onCopyRephrased }) {
   return (
     <div className="border-l-4 pl-4 mb-6">
       <h3 className="font-bold text-black">
         Q{index + 1}: {faq.question}
       </h3>
-      <p
-        className="text-black mt-2"
-        dangerouslySetInnerHTML={{ __html: faq.answer }}
-      />
+      <p className="text-black mt-2" dangerouslySetInnerHTML={{ __html: faq.answer }} />
 
       {rephrasedData && (
         <details className="mt-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
@@ -26,12 +23,7 @@ function FAQCard({ faq, index, copiedIndex, onCopy, rephrasedData, onCopyRephras
                     <p className="font-semibold text-gray-900">
                       Q1: {rephrasedData.rephrased.version_1?.question || ""}
                     </p>
-                    <p
-                      className="text-sm leading-relaxed mt-1"
-                      dangerouslySetInnerHTML={{
-                        __html: rephrasedData.rephrased.version_1?.answer || "",
-                      }}
-                    />
+                    <p className="text-sm leading-relaxed mt-1" dangerouslySetInnerHTML={{ __html: rephrasedData.rephrased.version_1?.answer || "" }} />
                   </div>
                   <button
                     onClick={async () => {
@@ -54,12 +46,7 @@ function FAQCard({ faq, index, copiedIndex, onCopy, rephrasedData, onCopyRephras
                     <p className="font-semibold text-gray-900">
                       Q2: {rephrasedData.rephrased.version_2?.question || ""}
                     </p>
-                    <p
-                      className="text-sm leading-relaxed mt-1"
-                      dangerouslySetInnerHTML={{
-                        __html: rephrasedData.rephrased.version_2?.answer || "",
-                      }}
-                    />
+                    <p className="text-sm leading-relaxed mt-1" dangerouslySetInnerHTML={{ __html: rephrasedData.rephrased.version_2?.answer || "" }} />
                   </div>
                   <button
                     onClick={async () => {
@@ -118,16 +105,33 @@ export default function App() {
   const [copiedContentIndex, setCopiedContentIndex] = useState(null);
   const [rephrasedFaqs, setRephrasedFaqs] = useState([]);
 
+  const API_BASE = process.env.REACT_APP_API_URL
+
   const fetchStrapiKeywords = async () => {
     try {
+      // Check cache first
+      const cacheKey = 'strapi_keywords';
+      const cachedKeywords = getCachedData(cacheKey);
+      const cacheAge = getCacheAge(cacheKey);
+
+      if (cachedKeywords) {
+        console.log(`✅ Using cached keywords (age: ${cacheAge?.toFixed(1)}h)`);
+        setStrapiKeywords(cachedKeywords);
+        setStrapiStatus(`✅ Keywords loaded from cache (${cacheAge?.toFixed(1)} hours old)`);
+        return;
+      }
+
       setStrapiStatus("⏳ Fetching keywords from Strapi...");
       const response = await fetch(`${API_BASE}/strapi/faq`);
       const data = await response.json();
 
       if (response.ok) {
         console.log("✅ Keywords fetched successfully:", data);
-        setStrapiKeywords(data.result || data);
+        const keywords = data.result || data;
+        setStrapiKeywords(keywords);
         setStrapiStatus("✅ Keywords.json updated successfully!");
+        // Cache the keywords
+        setCachedData(cacheKey, keywords);
       } else {
         console.error("⚠️ Backend error:", data);
         setStrapiStatus("⚠️ Backend failed to generate keywords.");
@@ -303,7 +307,10 @@ export default function App() {
             <input
               type="text"
               value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              onChange={(e) => {
+                setKeyword(e.target.value);
+                setError(""); // Clear error on input change
+              }}
               placeholder="e.g., marketing reporting software"
               className="w-full p-3 mb-6 rounded-lg border border-gray-300"
             />
@@ -311,7 +318,10 @@ export default function App() {
             <label className="block font-semibold mb-2">Content</label>
             <textarea
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={(e) => {
+                setContent(e.target.value);
+                setError(""); // Clear error on input change
+              }}
               placeholder="Paste your content here..."
               rows={8}
               className="w-full p-3 rounded-lg border border-gray-300 font-mono"
@@ -328,7 +338,7 @@ export default function App() {
 
               <button
                 onClick={fetchSerpQuestions}
-                disabled={loading}
+                disabled={loading || error !== ""}
                 className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading ? "Processing..." : "Start Generating FAQs"}
