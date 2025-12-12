@@ -4,20 +4,54 @@ import { getCachedData, setCachedData } from "../utils/cacheUtils";
 
 const API_BASE = process.env.REACT_APP_API_URL
 const STRAPI_COLLECTIONS = [
-  { label: 'Feature Tour Pages', value: 'feature-pages' },
-  { label: 'Blogs', value: 'url-pattern-blog' },
-  { label: 'Integrations', value: 'url-pattern-integrations' },
-  { label: 'Templates', value: 'url-pattern-templates' },
-  { label: 'Other Pages', value: 'url-pattern-other' },
+  { label: "Solution Pages", value: "solution-pages" },
+  { label: "Alternative Pages v2", value: "alternative-pages-v2s" },
+  { label: "SEO Landing Pages", value: "seo-pages" },
+  { label: "Cluster Pages", value: "cluster-pages" },
+  { label: "Topical Authority Categories", value: "topical-authority-categories" },
+  { label: "Topical Authority Pages (Blogs)", value: "topical-authority-pages" },
+  { label: "Google Sheets Template Pages", value: "google-sheets-template-pages" },
+  { label: "Google Sheets Templates", value: "google-sheets-templates" },
+  { label: "Integration Pages", value: "integration-pages" },
+  { label: "Integration  Google Sheets", value: "integration-to-google-sheets-pages" },
+  { label: "Integration  Looker Studio", value: "integration-to-looker-studio-pages" },
+  { label: "Template Pages", value: "template-pages" },
+  { label: "Addons", value: "addons" },
+  { label: "Competitor Comparison Pages", value: "competitor-comparison-pages" },
+  { label: "Connector Pages", value: "connector-pages" },
+  { label: "Documents Pages", value: "documents-pages" },
+  { label: "Feature Pages", value: "feature-pages" },
+  { label: "Reporting Tool Pages v1", value: "reporting-tool-pages" },
+  { label: "Reporting Tool Pages v2", value: "reporting-tool-pages-v2" },
+  { label: "Other Pages", value: "other-pages" },
+  { label: "Looker Studio Templates", value: "looker-studio-templates" },
+  { label: "Looker Studio Template Pages", value: "looker-studio-template-pages" }
 ];
-
 const COLLECTION_TO_CATEGORY_MAP = {
-  'seo-pages': 'SEO Landing Pages',
-  'feature-pages': 'Feature Tour Pages',
-  'integration-pages': 'Integrations',
-  'template-pages': 'Templates',
-  'reporting-tool-pages-v2': 'Product Pages',
-  'topical-authority-pages': 'Blogs',
+  "seo-pages": "SEO Landing Pages",
+  "solution-pages": "Solution Pages",
+  "alternative-pages": "Alternative Pages",
+  "alternative-pages-v2s": "Alternative Pages v2",
+  "cluster-pages": "Cluster Pages",
+  "faq": "FAQ",
+  "topical-authority-pages": "Topical Authority Pages",
+  "topical-authority-categories": "Topical Authority Categories",
+  "template-pages": "Templates pages",
+  "google-sheets-template-pages": "Google Sheets Template Pages",
+  "google-sheets-templates": "Google Sheets Templates",
+  "looker-studio-template-pages": "Looker Studio Template Pages",
+  "looker-studio-templates": "Looker Studio Templates",
+  "integration-pages": "Integration Pages",
+  "integration-to-google-sheets-pages": "Integration Google Sheets",
+  "integration-to-looker-studio-pages": "Integration Looker Studio",
+  "connector-pages": "Connector Pages",
+  "addons": "Addons",
+  "feature-pages": "Feature Pages",
+  "reporting-tool-pages": "Reporting Tool Pages v1",
+  "reporting-tool-pages-v2": "Reporting Tool Pages v2",
+  "competitor-comparison-pages": "Competitor Comparison Pages",
+  "documents-pages": "Documents Pages",
+  "other-pages": "Other Pages",
 };
 function FAQCard({ faq, index, copiedIndex, onCopy, rephrasedData, onCopyRephrased }) {
   return (
@@ -157,7 +191,7 @@ export default function ExistingPage() {
           Object.values(data).every(arr => Array.isArray(arr) && arr.length === 0);
 
         if (isEmpty) {
-          console.log("⚠️ keywords.json is empty, fetching from Strapi immediately...");
+          console.log("keywords.json is empty, fetching from Strapi immediately...");
           await fetchKeywordsFromStrapi();
         } else {
           console.log("Loaded keywords.json from file");
@@ -272,6 +306,8 @@ export default function ExistingPage() {
         targetCollections = collectionMappings.templates;
       } else if (selectedStrapiCollection === 'url-pattern-other') {
         targetCollections = collectionMappings.other;
+      } else {
+        targetCollections = [selectedStrapiCollection];
       }
 
       let allPages = [];
