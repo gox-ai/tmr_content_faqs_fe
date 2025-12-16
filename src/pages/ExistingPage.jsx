@@ -13,8 +13,8 @@ const STRAPI_COLLECTIONS = [
   { label: "Google Sheets Template Pages", value: "google-sheets-template-pages" },
   { label: "Google Sheets Templates", value: "google-sheets-templates" },
   { label: "Integration Pages", value: "integration-pages" },
-  { label: "Integration  Google Sheets", value: "integration-to-google-sheets-pages" },
-  { label: "Integration  Looker Studio", value: "integration-to-looker-studio-pages" },
+  { label: "Integration Google Sheets", value: "integration-to-google-sheets-pages" },
+  { label: "Integration Looker Studio", value: "integration-to-looker-studio-pages" },
   { label: "Template Pages", value: "template-pages" },
   { label: "Addons", value: "addons" },
   { label: "Competitor Comparison Pages", value: "competitor-comparison-pages" },
@@ -251,7 +251,7 @@ export default function ExistingPage() {
         return;
       }
 
-      setStrapiStatus("Loading pages from Strapi...");
+      setStrapiStatus("Loading pages from Strapi... pls wait");
 
       // If it's feature-pages, fetch normally
       if (selectedStrapiCollection === 'feature-pages') {

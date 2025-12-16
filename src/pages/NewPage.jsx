@@ -249,10 +249,10 @@ export default function App() {
             console.log("🔗 Interlinked FAQs:", interlinkedData.interlinked);
             setContentFaqs(interlinkedData.interlinked);
           } else {
-            console.warn("⚠️ Interlinking returned no data");
+            console.warn("Interlinking returned no data");
           }
         } else {
-          console.warn("⚠️ No Strapi keywords available for interlinking.");
+          console.warn("No Strapi keywords available for interlinking.");
         }
       } else {
         console.warn("No content-based FAQs generated.");
@@ -297,7 +297,7 @@ export default function App() {
             Content-Based FAQ Generator
           </h1>
           <p className="text-[#475569]">
-            Fetch Google questions → Generate content-based FAQs
+            Fetch Google questions Generate content-based FAQs
           </p>
         </div>
 
