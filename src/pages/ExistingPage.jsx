@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import LoadingSpinner from "./LoadingSpinner";
 import { getCachedData, setCachedData } from "../utils/cacheUtils";
-
+import FAQSection from "./FAQCard";
+import { normalizeFaqs } from "./ai-purifier";
 const API_BASE = process.env.REACT_APP_API_URL
 const STRAPI_COLLECTIONS = [
   { label: "Solution Pages", value: "solution-pages" },
@@ -53,95 +54,6 @@ const COLLECTION_TO_CATEGORY_MAP = {
   "documents-pages": "Documents Pages",
   "other-pages": "Other Pages",
 };
-function FAQCard({ faq, index, copiedIndex, onCopy, rephrasedData, onCopyRephrased }) {
-  return (
-    <div className={`border-l-4 pl-4 mb-6`}>
-      <h3 className="font-bold text-black">
-        Q{index + 1}: {faq.question}
-      </h3>
-      <p className="text-black mt-2" dangerouslySetInnerHTML={{ __html: faq.answer }} />
-
-      {rephrasedData && (
-        <details className="mt-3 bg-gray-50 rounded-lg p-3 border border-gray-200">
-          <summary className="cursor-pointer font-semibold text-[rgb(255,103,0)]">
-            View Rephrased Versions
-          </summary>
-
-          <div className="mt-3 pl-2 space-y-4 text-gray-800">
-            {rephrasedData?.rephrased?.version_1 ? (
-              <>
-                <div className="flex justify-between items-start bg-white p-3 rounded-md shadow-sm border border-gray-200">
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">
-                      Q1: {rephrasedData.rephrased.version_1?.question || ""}
-                    </p>
-                    <p className="text-sm leading-relaxed mt-1" dangerouslySetInnerHTML={{ __html: rephrasedData.rephrased.version_1?.answer || "" }} />
-                  </div>
-                  <button
-                    onClick={async () => {
-                      const text = `Q: ${rephrasedData.rephrased.version_1?.question || ""}\\nA: ${rephrasedData.rephrased.version_1?.answer || ""}`;
-                      await navigator.clipboard.writeText(text);
-                      onCopyRephrased(`v1-${index}`);
-                      setTimeout(() => onCopyRephrased(null), 2000);
-                    }}
-                    className={`ml-4 px-3 py-1 rounded-md text-sm font-semibold text-white transition ${copiedIndex === `v1-${index}`
-                      ? "bg-[rgb(255,103,0)]"
-                      : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
-                      }`}
-                  >
-                    {copiedIndex === `v1-${index}` ? "Copied!" : "Copy"}
-                  </button>
-                </div>
-                <div className="flex justify-between items-start bg-white p-3 rounded-md shadow-sm border border-gray-200">
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">
-                      Q2: {rephrasedData.rephrased.version_2?.question || ""}
-                    </p>
-                    <p className="text-sm leading-relaxed mt-1" dangerouslySetInnerHTML={{ __html: rephrasedData.rephrased.version_2?.answer || "" }} />
-                  </div>
-                  <button
-                    onClick={async () => {
-                      const text = `Q: ${rephrasedData.rephrased.version_2?.question || ""}\\nA: ${rephrasedData.rephrased.version_2?.answer || ""}`;
-                      await navigator.clipboard.writeText(text);
-                      onCopyRephrased(`v2-${index}`);
-                      setTimeout(() => onCopyRephrased(null), 2000);
-                    }}
-                    className={`ml-4 px-3 py-1 rounded-md text-sm font-semibold text-white transition ${copiedIndex === `v2-${index}`
-                      ? "bg-[rgb(255,103,0)]"
-                      : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
-                      }`}
-                  >
-                    {copiedIndex === `v2-${index}` ? "Copied!" : "Copy"}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <p className="text-gray-500 italic">
-                Rephrased versions are not yet available.
-              </p>
-            )}
-          </div>
-        </details>
-      )}
-
-      <button
-        onClick={async () => {
-          await navigator.clipboard.writeText(`Q: ${faq.question}\\nA: ${faq.answer}`);
-          onCopy(index);
-          setTimeout(() => onCopy(null), 2000);
-        }}
-        className={`mt-3 px-4 py-2 rounded-lg font-semibold text-white transition ${copiedIndex === index
-          ? "bg-[rgb(255,103,0)]"
-          : "bg-[rgb(255,103,0)] hover:bg-[rgb(230,90,0)]"
-          }`}
-      >
-        {copiedIndex === index ? "Copied!" : "Copy"}
-      </button>
-    </div>
-  );
-}
-
-// Helper function to strip HTML tags from text
 const stripHtml = (html) => {
   if (!html) return '';
   const tmp = document.createElement('DIV');
@@ -153,6 +65,12 @@ export default function ExistingPage() {
   const [mainKeyword, setMainKeyword] = useState("");
   const [allKeywords, setAllKeywords] = useState([]);
   const [content, setContent] = useState("");
+  const cleanKeywords = (keywords) => {
+    if (!Array.isArray(keywords)) return [];
+    return keywords.map(k => 
+      typeof k === 'string' ? k : (k?.list_of_keywords || '')
+    ).filter(k => k && k.trim().length > 0);
+  };
   const [serpQuestions, setSerpQuestions] = useState([]);
   const [faqs, setFaqs] = useState([]);
   const [contentFaqs, setContentFaqs] = useState([]);
@@ -354,7 +272,7 @@ export default function ExistingPage() {
         console.log(`Using cached page details for page ${pageId}`);
         setContent(cachedPageDetails.content);
         setMainKeyword(cachedPageDetails.mainKeyword || "");
-        setAllKeywords(cachedPageDetails.allKeywords || []);
+        setAllKeywords(cleanKeywords(cachedPageDetails.allKeywords));
         setStrapiStatus(cachedPageDetails.status + " (from cache)");
         return;
       }
@@ -395,8 +313,8 @@ export default function ExistingPage() {
             const keywordData = await keywordResponse.json();
 
             if (keywordResponse.ok && keywordData.keywords && keywordData.keywords.length > 0) {
-              const mainKw = keywordData.keyword || keywordData.keywords[0];
-              const allKws = keywordData.keywords;
+              const allKws = cleanKeywords(keywordData.keywords);
+              const mainKw = keywordData.keyword || allKws[0];
               const status = `Loaded content & matched ${keywordData.keywords.length} keyword(s) from "${keywordData.category}"`;
 
               setMainKeyword(mainKw);
@@ -473,15 +391,6 @@ export default function ExistingPage() {
       console.error("Rephrase error:", err);
     }
   };
-
-  const handleCopyPAA = useCallback((index) => {
-    setCopiedPAAIndex(index);
-  }, []);
-
-  const handleCopyContent = useCallback((index) => {
-    setCopiedContentIndex(index);
-  }, []);
-
   const handleStart = async () => {
     if (!selectedStrapiCollection || !selectedStrapiPage) {
       setError("Please select a Strapi collection and page first.");
@@ -577,16 +486,28 @@ export default function ExistingPage() {
       console.log(`Total unique questions: ${allSerpQuestions.length}`);
       setStrapiStatus(`Found ${allSerpQuestions.length} unique questions from ${totalKeywords} keyword(s). Generating FAQs...`);
       setStrapiStatus("Generating content-based FAQs...");
-      const contentFaqResponse = await fetch(`${API_BASE}/api/generate-content-faqs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          keyword: mainKeyword || keywordsToUse[0],
-          content: content,
-          keywordsData
-        }),
-      });
+      const contentFaqResponse = await fetch(
+        `${API_BASE}/api/generate-faqs`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            keyword: mainKeyword || keywordsToUse[0],
+            content,
+            serpQuestions: [],       
+            keywordsData
+          }),
+        }
+      );
+      if (!contentFaqResponse.ok) {
+      const errorText = await contentFaqResponse.text();
+      console.error("API Error:", errorText);
+      throw new Error(`API Error: ${contentFaqResponse.status} - ${errorText.substring(0, 200)}`);
+      }
       const contentFaqData = await contentFaqResponse.json();
+      const normalizedContentFaqs = normalizeFaqs(
+        contentFaqData.faqs || []
+      );
       setContentFaqs(contentFaqData.faqs || []);
       console.log(`Generated ${(contentFaqData.faqs || []).length} content-based FAQs`);
 
@@ -607,7 +528,11 @@ export default function ExistingPage() {
           }),
         });
         const paaData = await paaResponse.json();
-        setFaqs(paaData.faqs || []);
+        const normalizedPaaFaqs = normalizeFaqs(
+          paaData.faqs || []
+        );
+      setFaqs(normalizedPaaFaqs);
+
         console.log(`Generated ${(paaData.faqs || []).length} PAA+Google FAQs`);
       }
       setStrapiStatus(`FAQ Generation Complete! (${(contentFaqData.faqs || []).length} content FAQs, ${faqs.length} PAA FAQs)`);
@@ -777,67 +702,30 @@ export default function ExistingPage() {
             </div>
           </div>
         )}
-
-        {/* Show FAQ sections only after FAQs are generated */}
-        {!loading && (contentFaqs.length > 0 || faqs.length > 0) && (
-          <div className="w-[95%] mx-auto my-10 flex flex-col md:flex-row justify-between items-stretch gap-1 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-            {/* Content-Based FAQs */}
-            <div className="w-full md:w-[48%] flex flex-col bg-white shadow-xl rounded-2xl p-8 transition-all duration-500 hover:shadow-2xl">
-              <div className="flex justify-between items-center mb-6 border-b pb-4">
-                <h2 className="text-2xl font-bold text-black">
-                  Content-Based FAQs ({contentFaqs.length})
-                </h2>
-              </div>
-
-              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                {contentFaqs.length > 0 ? (
-                  contentFaqs.map((faq, i) => (
-                    <FAQCard
-                      key={i}
-                      faq={faq}
-                      index={i}
-                      copiedIndex={copiedContentIndex}
-                      onCopy={handleCopyContent}
-                      onCopyRephrased={setCopiedContentIndex}
-                      rephrasedData={rephrasedFaqs[i]}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p className="text-lg mb-2">No content-based FAQs generated</p>
-                    <p className="text-sm">Try generating FAQs by clicking "Start Generating FAQs"</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="w-full md:w-[48%] flex flex-col bg-white shadow-xl rounded-2xl p-8 transition-all duration-500 hover:shadow-2xl">
-              <div className="flex justify-between items-center mb-6 border-b pb-4">
-                <h2 className="text-2xl font-bold text-gray-800">
-                  PAA + Google FAQs ({faqs.length})
-                </h2>
-              </div>
-
-              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                {faqs.length > 0 ? (
-                  faqs.map((faq, i) => (
-                    <FAQCard
-                      key={i}
-                      faq={faq}
-                      index={i}
-                      copiedIndex={copiedPAAIndex}
-                      onCopy={handleCopyPAA}
-                      onCopyRephrased={setCopiedPAAIndex}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p className="text-lg mb-2">No PAA/Google FAQs found</p>
-                    <p className="text-sm">No related questions were found for this keyword</p>
-                  </div>
-                )}
-              </div>
-            </div>
+          {!loading && (contentFaqs.length > 0 || faqs.length > 0) && (
+          <div
+            className="w-[95%] mx-auto my-10 flex flex-col md:flex-row gap-4 animate-fade-in"
+            style={{ animationDelay: "0.3s" }}
+          >
+            <FAQSection
+              title="Content-Based FAQs"
+              faqs={contentFaqs}
+              rephrasedFaqs={rephrasedFaqs}
+              copiedIndex={copiedContentIndex}
+              onCopy={setCopiedContentIndex}
+              onCopyRephrased={setCopiedContentIndex}
+              emptyText="No content-based FAQs generated"
+            />
+            <FAQSection
+              title="PAA + Google FAQs"
+              faqs={faqs}
+              copiedIndex={copiedPAAIndex}
+              onCopy={setCopiedPAAIndex}
+              onCopyRephrased={setCopiedPAAIndex}
+              emptyText="No PAA / Google FAQs found"
+            />
           </div>
+
         )}
       </div>
     </div>
