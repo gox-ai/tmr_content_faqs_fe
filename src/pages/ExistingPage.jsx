@@ -644,8 +644,9 @@ export default function ExistingPage() {
                 // Get the title and strip HTML tags
                 const rawTitle = page.meta_data_title || page.title || page.slug || `Page ${page.id}`;
                 const cleanTitle = stripHtml(rawTitle);
-                const displayText = cleanTitle + (page.slug ? ` (${page.slug})` : '');
-
+                const maxLen =window.innerWidth < 640 ? 24 :window.innerWidth < 1024 ? 32 :38;   
+                const titleShort =cleanTitle.length > maxLen? cleanTitle.slice(0, maxLen) + "…": cleanTitle;
+                const displayText =titleShort + (page.slug ? ` (${page.slug})` : '');
                 return (
                   <option key={i} value={page.id}>
                     {displayText}
