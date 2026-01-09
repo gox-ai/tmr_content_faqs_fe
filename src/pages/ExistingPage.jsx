@@ -554,31 +554,8 @@ export default function ExistingPage() {
           showProgress={true}
         />
       )}
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-out forwards;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #888;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #555;
-        }
-      `}</style>
-      <div className="w-[95%] mx-auto">
-        <div className="mb-10 animate-fade-in">
+      <div className="w-[90%] mx-auto">
+        <div className="mb-10">
           <h1 className="text-[rgb(230,90,0)] text-3xl md:text-4xl font-extrabold text-center mb-4 tracking-tight">
             Strapi FAQ Generator
           </h1>
@@ -586,7 +563,7 @@ export default function ExistingPage() {
             Fetch content from Strapi → Generate FAQs
           </p>
         </div>
-        <div className="grid md:grid-cols-2 gap-4 mb-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+        <div className="grid md:grid-cols-2 gap-4 mb-6">
           <div>
             <label className="block font-semibold mb-2 text-gray-700">
               Select Strapi Collection
@@ -597,15 +574,12 @@ export default function ExistingPage() {
                 setSelectedStrapiCollection(e.target.value);
                 setSelectedStrapiPage("");
                 setStrapiPages([]);
-                setError(""); // Clear error on selection change
-                // Clear generated FAQs
+                setError(""); 
                 setContentFaqs([]);
                 setFaqs([]);
                 setRephrasedFaqs([]);
-              }}
-              className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[rgb(230,90,0)] transition-all duration-300 hover:border-[rgb(230,90,0)]"
-            >
-              <option value="">-- Select Collection --</option>
+              }}className="w-full max-w-full truncate border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[rgb(230,90,0)] text-sm sm:text-base">
+                <option value="">-- Select Collection --</option>
               {STRAPI_COLLECTIONS.map((col) => (
                 <option key={col.value} value={col.value}>
                   {col.label}
