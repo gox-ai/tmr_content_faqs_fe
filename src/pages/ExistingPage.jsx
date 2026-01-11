@@ -3,6 +3,8 @@ import LoadingSpinner from "./LoadingSpinner";
 import { getCachedData, setCachedData } from "../utils/cacheUtils";
 import FAQSection from "./FAQCard";
 import { normalizeFaqs } from "./ai-purifier";
+import Dropdown from 'react-dropdown';
+import 'react-dropdown/style.css';
 const API_BASE = process.env.REACT_APP_API_URL
 const STRAPI_COLLECTIONS = [
   { label: "Solution Pages", value: "solution-pages" },
@@ -67,7 +69,7 @@ export default function ExistingPage() {
   const [content, setContent] = useState("");
   const cleanKeywords = (keywords) => {
     if (!Array.isArray(keywords)) return [];
-    return keywords.map(k => 
+    return keywords.map(k =>
       typeof k === 'string' ? k : (k?.list_of_keywords || '')
     ).filter(k => k && k.trim().length > 0);
   };
@@ -494,15 +496,15 @@ export default function ExistingPage() {
           body: JSON.stringify({
             keyword: mainKeyword || keywordsToUse[0],
             content,
-            serpQuestions: [],       
+            serpQuestions: [],
             keywordsData
           }),
         }
       );
       if (!contentFaqResponse.ok) {
-      const errorText = await contentFaqResponse.text();
-      console.error("API Error:", errorText);
-      throw new Error(`API Error: ${contentFaqResponse.status} - ${errorText.substring(0, 200)}`);
+        const errorText = await contentFaqResponse.text();
+        console.error("API Error:", errorText);
+        throw new Error(`API Error: ${contentFaqResponse.status} - ${errorText.substring(0, 200)}`);
       }
       const contentFaqData = await contentFaqResponse.json();
       const normalizedContentFaqs = normalizeFaqs(
@@ -531,7 +533,7 @@ export default function ExistingPage() {
         const normalizedPaaFaqs = normalizeFaqs(
           paaData.faqs || []
         );
-      setFaqs(normalizedPaaFaqs);
+        setFaqs(normalizedPaaFaqs);
 
         console.log(`Generated ${(paaData.faqs || []).length} PAA+Google FAQs`);
       }
@@ -568,34 +570,51 @@ export default function ExistingPage() {
             <label className="block font-semibold mb-2 text-gray-700">
               Select Strapi Collection
             </label>
-            <select
-              value={selectedStrapiCollection}
-              onChange={(e) => {
-                setSelectedStrapiCollection(e.target.value);
+            <Dropdown
+              options={STRAPI_COLLECTIONS}
+              value={STRAPI_COLLECTIONS.find(col => col.value === selectedStrapiCollection)}
+              onChange={(option) => {
+                setSelectedStrapiCollection(option.value);
                 setSelectedStrapiPage("");
                 setStrapiPages([]);
-                setError(""); 
+                setError("");
                 setContentFaqs([]);
                 setFaqs([]);
                 setRephrasedFaqs([]);
-              }}className="w-full max-w-full truncate border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[rgb(230,90,0)] text-sm sm:text-base">
-                <option value="">-- Select Collection --</option>
-              {STRAPI_COLLECTIONS.map((col) => (
-                <option key={col.value} value={col.value}>
-                  {col.label}
-                </option>
-              ))}
-            </select>
+              }}
+              placeholder="-- Select Collection --"
+              controlClassName="!h-12 !flex !items-center !border-gray-300 !rounded-lg !px-3 !bg-white !text-base !hover:border-[rgb(230,90,0)] !transition-all !duration-300"
+              placeholderClassName="!text-gray-500"
+              className="w-full"
+            />
           </div>
 
           <div>
             <label className="block font-semibold mb-2 text-gray-700">
               Select Page
             </label>
-            <select
-              value={selectedStrapiPage}
-              onChange={(e) => {
-                setSelectedStrapiPage(e.target.value);
+            <Dropdown
+              options={strapiPages.map(page => {
+                const rawTitle = page.meta_data_title || page.title || page.slug || `Page ${page.id}`;
+                const cleanTitle = stripHtml(rawTitle);
+                const maxLen = window.innerWidth < 640 ? 24 : window.innerWidth < 1024 ? 32 : 38;
+                const titleShort = cleanTitle.length > maxLen ? cleanTitle.slice(0, maxLen) + "…" : cleanTitle;
+                return { value: page.id.toString(), label: titleShort + (page.slug ? ` (${page.slug})` : '') };
+              })}
+              value={selectedStrapiPage ? {
+                value: selectedStrapiPage,
+                label: (() => {
+                  const page = strapiPages.find(p => p.id.toString() === selectedStrapiPage);
+                  if (!page) return "";
+                  const rawTitle = page.meta_data_title || page.title || page.slug || `Page ${page.id}`;
+                  const cleanTitle = stripHtml(rawTitle);
+                  const maxLen = window.innerWidth < 640 ? 24 : window.innerWidth < 1024 ? 32 : 38;
+                  const titleShort = cleanTitle.length > maxLen ? cleanTitle.slice(0, maxLen) + "…" : cleanTitle;
+                  return titleShort + (page.slug ? ` (${page.slug})` : '');
+                })()
+              } : null}
+              onChange={(option) => {
+                setSelectedStrapiPage(option.value);
                 setContent("");
                 setMainKeyword("");
                 setAllKeywords([]);
@@ -606,28 +625,16 @@ export default function ExistingPage() {
                 setFaqs([]);
                 setRephrasedFaqs([]);
 
-                if (e.target.value) {
-                  fetchPageDetails(e.target.value);
+                if (option.value) {
+                  fetchPageDetails(option.value);
                 }
               }}
               disabled={!selectedStrapiCollection || strapiPages.length === 0}
-              className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-[rgb(230,90,0)] disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-300 hover:border-[rgb(230,90,0)]"
-            >
-              <option value="">-- Select Page --</option>
-              {strapiPages.map((page, i) => {
-                // Get the title and strip HTML tags
-                const rawTitle = page.meta_data_title || page.title || page.slug || `Page ${page.id}`;
-                const cleanTitle = stripHtml(rawTitle);
-                const maxLen =window.innerWidth < 640 ? 24 :window.innerWidth < 1024 ? 32 :38;   
-                const titleShort =cleanTitle.length > maxLen? cleanTitle.slice(0, maxLen) + "…": cleanTitle;
-                const displayText =titleShort + (page.slug ? ` (${page.slug})` : '');
-                return (
-                  <option key={i} value={page.id}>
-                    {displayText}
-                  </option>
-                );
-              })}
-            </select>
+              placeholder="-- Select Page --"
+              controlClassName={`!h-12 !flex !items-center !border-gray-300 !rounded-lg !px-3 !text-base !transition-all !duration-300 ${(!selectedStrapiCollection || strapiPages.length === 0) ? "!bg-gray-100 !cursor-not-allowed" : "!bg-white !hover:border-[rgb(230,90,0)]"}`}
+              placeholderClassName="!text-gray-500"
+              className="w-full"
+            />
           </div>
         </div>
 
@@ -677,7 +684,7 @@ export default function ExistingPage() {
             </div>
           </div>
         )}
-          {!loading && (contentFaqs.length > 0 || faqs.length > 0) && (
+        {!loading && (contentFaqs.length > 0 || faqs.length > 0) && (
           <div
             className="w-[95%] mx-auto my-10 flex flex-col md:flex-row gap-4 animate-fade-in"
             style={{ animationDelay: "0.3s" }}
@@ -703,6 +710,12 @@ export default function ExistingPage() {
 
         )}
       </div>
+      <style>{`
+        .Dropdown-root.is-open .Dropdown-control {
+          border-color: rgb(230,90,0) !important;
+          box-shadow: 0 0 0 2px rgba(230, 90, 0, 0.2) !important;
+        }
+      `}</style>
     </div>
   );
 }
