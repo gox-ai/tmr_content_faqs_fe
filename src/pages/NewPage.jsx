@@ -1,12 +1,13 @@
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import LoadingSpinner from "./LoadingSpinner";
 import FAQSection from "./FAQCard";
 import { normalizeFaqs } from "./ai-purifier";
+import { fetchJsonOrThrow } from "../utils/api";
 const cleanKeywords = (keywords) => {
   if (!Array.isArray(keywords)) return [];
   return keywords
-    .map(k => typeof k === "string" ? k : k?.list_of_keywords || "")
-    .filter(k => k && k.trim().length > 0);
+    .map((k) => (typeof k === "string" ? k : k?.list_of_keywords || ""))
+    .filter((k) => k && k.trim().length > 0);
 };
 export default function App() {
   const [keyword, setKeyword] = useState("");
@@ -23,97 +24,114 @@ export default function App() {
   const [copiedContentIndex, setCopiedContentIndex] = useState(null);
   const [rephrasedFaqs, setRephrasedFaqs] = useState([]);
 
-  const API_BASE = process.env.REACT_APP_API_URL
+  const API_BASE = process.env.REACT_APP_API_URL;
+
   const fetchSerpQuestions = async () => {
-  if (!keyword.trim()) {
-    setError("Please enter a keyword");
-    return;
-  }
-
-  setLoading(true);
-  setError("");
-
-  try {
-    const response = await fetch(`${API_BASE}/api/fetch-serp-questions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keyword }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`SERP API failed: ${response.status}`);
-    } 
-    const data = await response.json();
-    if (!data.questions?.length) {
-      throw new Error("No questions found for this keyword.");
+    if (!keyword.trim()) {
+      setError("Please enter a keyword");
+      return;
     }
-    setSerpQuestions(data.questions);
-    await generateFaqs(data.questions);
-    await generateContentFaqs();
 
-  } catch (err) {
-    setError(err.message);
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
+    setError("");
+
+    try {
+      const data = await fetchJsonOrThrow(
+        `${API_BASE}/api/fetch-serp-questions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keyword }),
+        }
+      );
+
+      if (!data.questions?.length) {
+        throw new Error("No questions found for this keyword.");
+      }
+
+      setSerpQuestions(data.questions);
+      await generateFaqs(data.questions);
+      await generateContentFaqs();
+    } catch (err) {
+      setError(err.message || "Failed to fetch questions");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const generateFaqs = async (questions) => {
-  if (!content.trim()) {
-    throw new Error("Please provide content to generate FAQs.");
-  }
+    try {
+      if (!content.trim()) {
+        throw new Error("Please provide content to generate FAQs.");
+      }
 
-  setFaqs([]);
-  setAutoShowFaqs(false);
+      setFaqs([]);
+      setAutoShowFaqs(false);
 
-  const response = await fetch(`${API_BASE}/api/generate-faqs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ keyword, content, serpQuestions: questions }),
-  });
+      const data = await fetchJsonOrThrow(`${API_BASE}/api/generate-faqs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keyword, content, serpQuestions: questions }),
+      });
 
-  const data = await response.json();
+      if (!data.faqs?.length) {
+        throw new Error("AI could not generate FAQs.");
+      }
 
-  if (!data.faqs?.length) {
-    throw new Error("AI could not generate FAQs.");
-  }
+      setFaqs(normalizeFaqs(data.faqs));
+      setAutoShowFaqs(true);
+    } catch (err) {
+      console.error("Error generating FAQs:", err);
+      throw err; // Re-throw to be caught by parent try-catch
+    }
+  };
 
-  setFaqs(normalizeFaqs(data.faqs));
-  setAutoShowFaqs(true);
-};
- const generateContentFaqs = async () => {
-  if (!content.trim()) {
-    throw new Error("Please provide content to generate content-based FAQs.");
-  }
-  const keywordsToUse = cleanKeywords(strapiKeywords);
-  const mainKeyword = keyword || keywordsToUse[0];
-  const response = await fetch(`${API_BASE}/api/generate-faqs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      keyword: mainKeyword,
-      content,
-      serpQuestions: [],
-      keywordsData: strapiKeywords,
-    }),
-  });
-  if (!response.ok) {
-    throw new Error("Failed to generate content FAQs");
-  }
-  const data = await response.json();
+  const generateContentFaqs = async () => {
+    try {
+      if (!content.trim()) {
+        throw new Error(
+          "Please provide content to generate content-based FAQs."
+        );
+      }
 
-  if (!data.faqs?.length) return;
+      const keywordsToUse = cleanKeywords(strapiKeywords);
+      const mainKeyword = keyword || keywordsToUse[0];
 
-  setContentFaqs(normalizeFaqs(data.faqs));
-  const rephraseResponse = await fetch(`${API_BASE}/api/rephrase-faqs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ faqs: data.faqs, content }),
-  });
+      const data = await fetchJsonOrThrow(`${API_BASE}/api/generate-faqs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          keyword: mainKeyword,
+          content,
+          serpQuestions: [],
+          keywordsData: strapiKeywords,
+        }),
+      });
 
-  const rephrased = await rephraseResponse.json();
-  setRephrasedFaqs(rephrased);
-};
+      if (!data.faqs?.length) return;
+
+      setContentFaqs(normalizeFaqs(data.faqs));
+
+      try {
+        const rephrased = await fetchJsonOrThrow(
+          `${API_BASE}/api/rephrase-faqs`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ faqs: data.faqs, content }),
+          }
+        );
+
+        setRephrasedFaqs(rephrased);
+      } catch (rephraseErr) {
+        console.error("Error rephrasing FAQs:", rephraseErr);
+        // Don't throw - rephrasing is optional, continue without it
+      }
+    } catch (err) {
+      console.error("Error generating content FAQs:", err);
+      throw err; // Re-throw to be caught by parent try-catch
+    }
+  };
   const reset = () => {
     setKeyword("");
     setContent("");
@@ -189,19 +207,23 @@ export default function App() {
             </div>
 
             {strapiStatus && (
-              <div className={`mt-4 font-semibold ${strapiStatus.startsWith("✅") ? "text-green-600" :
-                strapiStatus.startsWith("⚠️") ? "text-amber-600" :
-                  strapiStatus.startsWith("❌") ? "text-red-600" :
-                    "text-gray-600"
-                }`}>
+              <div
+                className={`mt-4 font-semibold ${
+                  strapiStatus.startsWith("✅")
+                    ? "text-green-600"
+                    : strapiStatus.startsWith("⚠️")
+                    ? "text-amber-600"
+                    : strapiStatus.startsWith("❌")
+                    ? "text-red-600"
+                    : "text-gray-600"
+                }`}
+              >
                 {strapiStatus}
               </div>
             )}
 
             {error && (
-              <div className="mt-4 text-red-600 font-medium">
-                {error}
-              </div>
+              <div className="mt-4 text-red-600 font-medium">{error}</div>
             )}
           </div>
         )}
@@ -209,7 +231,8 @@ export default function App() {
         {!autoShowFaqs && serpQuestions.length > 0 && faqs.length === 0 && (
           <div className="bg-white rounded-2xl p-8 mt-8 shadow-md">
             <h2 className="text-2xl font-bold text-black mb-4">
-              These are the fetched Google questions, wait for a minute working else try again.
+              These are the fetched Google questions, wait for a minute working
+              else try again.
             </h2>
             <ul className="list-none p-0">
               {serpQuestions.map((q, i) => (

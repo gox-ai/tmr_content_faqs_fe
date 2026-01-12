@@ -1,3 +1,6 @@
+import { sanitizeHtml } from "./ai-purifier";
+
+const safeHtml = (html) => ({ __html: sanitizeHtml(html || "") });
 
 function FAQItem({
   faq,
@@ -15,7 +18,7 @@ function FAQItem({
 
       <p
         className="text-black mt-2"
-        dangerouslySetInnerHTML={{ __html: faq.answer }}
+        dangerouslySetInnerHTML={safeHtml(faq.answer)}
       />
 
       {rephrasedData?.rephrased && (
@@ -40,7 +43,7 @@ function FAQItem({
                     </p>
                     <p
                       className="text-sm mt-1"
-                      dangerouslySetInnerHTML={{ __html: data.answer }}
+                      dangerouslySetInnerHTML={safeHtml(data.answer)}
                     />
                   </div>
 
@@ -115,9 +118,7 @@ export default function FAQSection({
             />
           ))
         ) : (
-          <p className="text-gray-500 text-center py-8">
-            {emptyText}
-          </p>
+          <p className="text-gray-500 text-center py-8">{emptyText}</p>
         )}
       </div>
     </div>

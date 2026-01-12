@@ -1,26 +1,45 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "./LoadingSpinner";
 import { getCachedData, setCachedData } from "../utils/cacheUtils";
 import FAQSection from "./FAQCard";
 import { normalizeFaqs } from "./ai-purifier";
-import Dropdown from 'react-dropdown';
-import 'react-dropdown/style.css';
-const API_BASE = process.env.REACT_APP_API_URL
+import Select from "react-select";
+import { fetchJsonOrThrow } from "../utils/api";
+
+const API_BASE = process.env.REACT_APP_API_URL;
 const STRAPI_COLLECTIONS = [
   { label: "Solution Pages", value: "solution-pages" },
   { label: "Alternative Pages v2", value: "alternative-pages-v2s" },
   { label: "SEO Landing Pages", value: "seo-pages" },
   { label: "Cluster Pages", value: "cluster-pages" },
-  { label: "Topical Authority Categories", value: "topical-authority-categories" },
-  { label: "Topical Authority Pages (Blogs)", value: "topical-authority-pages" },
-  { label: "Google Sheets Template Pages", value: "google-sheets-template-pages" },
+  {
+    label: "Topical Authority Categories",
+    value: "topical-authority-categories",
+  },
+  {
+    label: "Topical Authority Pages (Blogs)",
+    value: "topical-authority-pages",
+  },
+  {
+    label: "Google Sheets Template Pages",
+    value: "google-sheets-template-pages",
+  },
   { label: "Google Sheets Templates", value: "google-sheets-templates" },
   { label: "Integration Pages", value: "integration-pages" },
-  { label: "Integration Google Sheets", value: "integration-to-google-sheets-pages" },
-  { label: "Integration Looker Studio", value: "integration-to-looker-studio-pages" },
+  {
+    label: "Integration Google Sheets",
+    value: "integration-to-google-sheets-pages",
+  },
+  {
+    label: "Integration Looker Studio",
+    value: "integration-to-looker-studio-pages",
+  },
   { label: "Template Pages", value: "template-pages" },
   { label: "Addons", value: "addons" },
-  { label: "Competitor Comparison Pages", value: "competitor-comparison-pages" },
+  {
+    label: "Competitor Comparison Pages",
+    value: "competitor-comparison-pages",
+  },
   { label: "Connector Pages", value: "connector-pages" },
   { label: "Documents Pages", value: "documents-pages" },
   { label: "Feature Pages", value: "feature-pages" },
@@ -28,7 +47,10 @@ const STRAPI_COLLECTIONS = [
   { label: "Reporting Tool Pages v2", value: "reporting-tool-pages-v2" },
   { label: "Other Pages", value: "other-pages" },
   { label: "Looker Studio Templates", value: "looker-studio-templates" },
-  { label: "Looker Studio Template Pages", value: "looker-studio-template-pages" }
+  {
+    label: "Looker Studio Template Pages",
+    value: "looker-studio-template-pages",
+  },
 ];
 const COLLECTION_TO_CATEGORY_MAP = {
   "seo-pages": "SEO Landing Pages",
@@ -36,7 +58,7 @@ const COLLECTION_TO_CATEGORY_MAP = {
   "alternative-pages": "Alternative Pages",
   "alternative-pages-v2s": "Alternative Pages v2",
   "cluster-pages": "Cluster Pages",
-  "faq": "FAQ",
+  faq: "FAQ",
   "topical-authority-pages": "Topical Authority Pages",
   "topical-authority-categories": "Topical Authority Categories",
   "template-pages": "Templates pages",
@@ -48,7 +70,7 @@ const COLLECTION_TO_CATEGORY_MAP = {
   "integration-to-google-sheets-pages": "Integration Google Sheets",
   "integration-to-looker-studio-pages": "Integration Looker Studio",
   "connector-pages": "Connector Pages",
-  "addons": "Addons",
+  addons: "Addons",
   "feature-pages": "Feature Pages",
   "reporting-tool-pages": "Reporting Tool Pages v1",
   "reporting-tool-pages-v2": "Reporting Tool Pages v2",
@@ -57,10 +79,10 @@ const COLLECTION_TO_CATEGORY_MAP = {
   "other-pages": "Other Pages",
 };
 const stripHtml = (html) => {
-  if (!html) return '';
-  const tmp = document.createElement('DIV');
+  if (!html) return "";
+  const tmp = document.createElement("DIV");
   tmp.innerHTML = html;
-  return tmp.textContent || tmp.innerText || '';
+  return tmp.textContent || tmp.innerText || "";
 };
 
 export default function ExistingPage() {
@@ -69,11 +91,11 @@ export default function ExistingPage() {
   const [content, setContent] = useState("");
   const cleanKeywords = (keywords) => {
     if (!Array.isArray(keywords)) return [];
-    return keywords.map(k =>
-      typeof k === 'string' ? k : (k?.list_of_keywords || '')
-    ).filter(k => k && k.trim().length > 0);
+    return keywords
+      .map((k) => (typeof k === "string" ? k : k?.list_of_keywords || ""))
+      .filter((k) => k && k.trim().length > 0);
   };
-  const [serpQuestions, setSerpQuestions] = useState([]);
+  // const [serpQuestions, setSerpQuestions] = useState([]);
   const [faqs, setFaqs] = useState([]);
   const [contentFaqs, setContentFaqs] = useState([]);
   const [rephrasedFaqs, setRephrasedFaqs] = useState([]);
@@ -90,37 +112,37 @@ export default function ExistingPage() {
   useEffect(() => {
     const loadKeywords = async () => {
       // Try to load from cache first
-      const cachedKeywords = getCachedData('keywords_json');
+      const cachedKeywords = getCachedData("keywords_json");
       if (cachedKeywords && Object.keys(cachedKeywords).length > 0) {
-        console.log("✅ Loaded keywords.json from cache");
         setKeywordsData(cachedKeywords);
         return;
       }
 
       // Try to fetch from file
       try {
-        const res = await fetch('/keywords.json');
+        const res = await fetch("/keywords.json");
         if (!res.ok) {
-          throw new Error('keywords.json not found');
+          throw new Error("keywords.json not found");
         }
 
         const data = await res.json();
 
         // Check if keywords.json is empty or has no data
-        const isEmpty = !data || Object.keys(data).length === 0 ||
-          Object.values(data).every(arr => Array.isArray(arr) && arr.length === 0);
+        const isEmpty =
+          !data ||
+          Object.keys(data).length === 0 ||
+          Object.values(data).every(
+            (arr) => Array.isArray(arr) && arr.length === 0
+          );
 
         if (isEmpty) {
-          console.log("keywords.json is empty, fetching from Strapi immediately...");
           await fetchKeywordsFromStrapi();
         } else {
-          console.log("Loaded keywords.json from file");
           setKeywordsData(data);
-          setCachedData('keywords_json', data);
+          setCachedData("keywords_json", data);
         }
       } catch (err) {
         console.error("Failed to load keywords.json:", err);
-        console.log("⚠️ File not found, fetching keywords from Strapi immediately...");
         await fetchKeywordsFromStrapi();
       }
     };
@@ -131,13 +153,11 @@ export default function ExistingPage() {
   const fetchKeywordsFromStrapi = async () => {
     try {
       setStrapiStatus("⏳ Fetching keywords from Strapi...");
-      const response = await fetch(`${API_BASE}/strapi/faq`);
-      const data = await response.json();
+      const data = await fetchJsonOrThrow(`${API_BASE}/strapi/faq`);
 
-      if (response.ok && data.result) {
-        console.log("✅ Keywords fetched from Strapi and saved to keywords.json");
+      if (data.result) {
         setKeywordsData(data.result);
-        setCachedData('keywords_json', data.result);
+        setCachedData("keywords_json", data.result);
         setStrapiStatus("✅ Keywords loaded from Strapi");
       } else {
         console.error("⚠️ Failed to fetch keywords from Strapi");
@@ -149,15 +169,6 @@ export default function ExistingPage() {
     }
   };
 
-  useEffect(() => {
-    if (selectedStrapiCollection) {
-      fetchStrapiPages();
-    } else {
-      // Clear pages when collection is deselected
-      setStrapiPages([]);
-    }
-  }, [selectedStrapiCollection]);
-
   const fetchStrapiPages = async () => {
     try {
       // Check cache first
@@ -165,7 +176,6 @@ export default function ExistingPage() {
       const cachedPages = getCachedData(cacheKey);
 
       if (cachedPages) {
-        console.log(`✅ Using cached pages for ${selectedStrapiCollection}`);
         setStrapiPages(cachedPages);
         setStrapiStatus(`Loaded ${cachedPages.length} pages (from cache)`);
         return;
@@ -174,20 +184,21 @@ export default function ExistingPage() {
       setStrapiStatus("Loading pages from Strapi... pls wait");
 
       // If it's feature-pages, fetch normally
-      if (selectedStrapiCollection === 'feature-pages') {
-        const response = await fetch(`${API_BASE}/api/fetch-strapi-content`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ collection: 'feature-pages' }),
-        });
-        const data = await response.json();
+      if (selectedStrapiCollection === "feature-pages") {
+        const data = await fetchJsonOrThrow(
+          `${API_BASE}/api/fetch-strapi-content`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ collection: "feature-pages" }),
+          }
+        );
 
-        if (response.ok && data.pages) {
-          console.log("Received pages from backend:", data.pages);
+        if (data.pages) {
           // Add collection info to each page
-          const pagesWithCollection = data.pages.map(page => ({
+          const pagesWithCollection = data.pages.map((page) => ({
             ...page,
-            _sourceCollection: 'feature-pages'
+            _sourceCollection: "feature-pages",
           }));
           setStrapiPages(pagesWithCollection);
           setStrapiStatus(`Loaded ${pagesWithCollection.length} pages`);
@@ -200,31 +211,39 @@ export default function ExistingPage() {
         return;
       }
       const collectionMappings = {
-        blog: ['topical-authority-pages'],
-        integrations: ['integration-pages', 'integration-to-google-sheets-pages', 'integration-to-looker-studio-pages'],
-        templates: ['template-pages', 'google-sheets-template-pages', 'looker-studio-template-pages'],
+        blog: ["topical-authority-pages"],
+        integrations: [
+          "integration-pages",
+          "integration-to-google-sheets-pages",
+          "integration-to-looker-studio-pages",
+        ],
+        templates: [
+          "template-pages",
+          "google-sheets-template-pages",
+          "looker-studio-template-pages",
+        ],
         other: [
-          'seo-pages',
-          'solution-pages',
-          'cluster-pages',
-          'connector-pages',
-          'competitor-comparison-pages',
-          'alternative-pages-v2s',
-          'case-studies',
-          'reporting-tool-pages-v2',
-          'addon-pages',
-          'documents-pages',
-          'other-pages',
-        ]
+          "seo-pages",
+          "solution-pages",
+          "cluster-pages",
+          "connector-pages",
+          "competitor-comparison-pages",
+          "alternative-pages-v2s",
+          "case-studies",
+          "reporting-tool-pages-v2",
+          "addon-pages",
+          "documents-pages",
+          "other-pages",
+        ],
       };
       let targetCollections = [];
-      if (selectedStrapiCollection === 'url-pattern-blog') {
+      if (selectedStrapiCollection === "url-pattern-blog") {
         targetCollections = collectionMappings.blog;
-      } else if (selectedStrapiCollection === 'url-pattern-integrations') {
+      } else if (selectedStrapiCollection === "url-pattern-integrations") {
         targetCollections = collectionMappings.integrations;
-      } else if (selectedStrapiCollection === 'url-pattern-templates') {
+      } else if (selectedStrapiCollection === "url-pattern-templates") {
         targetCollections = collectionMappings.templates;
-      } else if (selectedStrapiCollection === 'url-pattern-other') {
+      } else if (selectedStrapiCollection === "url-pattern-other") {
         targetCollections = collectionMappings.other;
       } else {
         targetCollections = [selectedStrapiCollection];
@@ -234,16 +253,18 @@ export default function ExistingPage() {
 
       for (const collection of targetCollections) {
         try {
-          const response = await fetch(`${API_BASE}/api/fetch-strapi-content`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ collection }),
-          });
-          const data = await response.json();
-          if (response.ok && data.pages) {
-            const pagesWithCollection = data.pages.map(page => ({
+          const data = await fetchJsonOrThrow(
+            `${API_BASE}/api/fetch-strapi-content`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ collection }),
+            }
+          );
+          if (data.pages) {
+            const pagesWithCollection = data.pages.map((page) => ({
               ...page,
-              _sourceCollection: collection
+              _sourceCollection: collection,
             }));
             allPages = [...allPages, ...pagesWithCollection];
           }
@@ -252,17 +273,24 @@ export default function ExistingPage() {
         }
       }
 
-      console.log("Received pages from backend:", allPages);
       setStrapiPages(allPages);
       setStrapiStatus(`Loaded ${allPages.length} pages`);
       setCachedData(cacheKey, allPages);
-
     } catch (err) {
       console.error("Fetch Strapi pages error:", err);
       setStrapiStatus("Error loading pages");
       setStrapiPages([]);
     }
   };
+
+  useEffect(() => {
+    if (selectedStrapiCollection) {
+      fetchStrapiPages();
+    } else {
+      // Clear pages when collection is deselected
+      setStrapiPages([]);
+    }
+  }, [selectedStrapiCollection]);
 
   const fetchPageDetails = async (pageId) => {
     try {
@@ -271,7 +299,6 @@ export default function ExistingPage() {
       const cachedPageDetails = getCachedData(cacheKey);
 
       if (cachedPageDetails) {
-        console.log(`Using cached page details for page ${pageId}`);
         setContent(cachedPageDetails.content);
         setMainKeyword(cachedPageDetails.mainKeyword || "");
         setAllKeywords(cleanKeywords(cachedPageDetails.allKeywords));
@@ -280,41 +307,45 @@ export default function ExistingPage() {
       }
 
       setStrapiStatus("Fetching page details...");
-      const selectedPage = strapiPages.find(p => p.id === parseInt(pageId));
-      const actualCollection = selectedPage?._sourceCollection || selectedStrapiCollection;
+      const selectedPage = strapiPages.find((p) => p.id === parseInt(pageId));
+      const actualCollection =
+        selectedPage?._sourceCollection || selectedStrapiCollection;
 
-      const response = await fetch(`${API_BASE}/api/fetch-strapi-content`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          collection: actualCollection,
-          pageId: pageId
-        }),
-      });
-      const data = await response.json();
+      const data = await fetchJsonOrThrow(
+        `${API_BASE}/api/fetch-strapi-content`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            collection: actualCollection,
+            pageId: pageId,
+          }),
+        }
+      );
 
-      if (response.ok && data.content) {
+      if (data.content) {
         setContent(data.content);
-        console.log(`Loaded content: ${data.content.length} chars`);
 
         const urlToMatch = data.url || data.slug;
-        const categoryName = COLLECTION_TO_CATEGORY_MAP[actualCollection] || '';
+        const categoryName = COLLECTION_TO_CATEGORY_MAP[actualCollection] || "";
 
         if (urlToMatch) {
           try {
             setStrapiStatus("Matching keywords from keywords.json...");
-            const keywordResponse = await fetch(`${API_BASE}/api/match-keyword`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                url: urlToMatch,
-                slug: data.slug,
-                category: categoryName
-              }),
-            });
-            const keywordData = await keywordResponse.json();
+            const keywordData = await fetchJsonOrThrow(
+              `${API_BASE}/api/match-keyword`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  url: urlToMatch,
+                  slug: data.slug,
+                  category: categoryName,
+                }),
+              }
+            );
 
-            if (keywordResponse.ok && keywordData.keywords && keywordData.keywords.length > 0) {
+            if (keywordData.keywords && keywordData.keywords.length > 0) {
               const allKws = cleanKeywords(keywordData.keywords);
               const mainKw = keywordData.keyword || allKws[0];
               const status = `Loaded content & matched ${keywordData.keywords.length} keyword(s) from "${keywordData.category}"`;
@@ -322,19 +353,22 @@ export default function ExistingPage() {
               setMainKeyword(mainKw);
               setAllKeywords(allKws);
               setStrapiStatus(status);
-              console.log(`Auto-matched keywords:`, allKws);
 
               // Cache the page details
               setCachedData(cacheKey, {
                 content: data.content,
                 mainKeyword: mainKw,
                 allKeywords: allKws,
-                status: status
+                status: status,
               });
-            } else if (keywordResponse.status === 404 || keywordData.notFound) {
+            } else if (keywordData.status === 404 || keywordData.notFound) {
               // Page not found in keywords.json
-              const errorMsg = keywordData.message || "No keywords found for this page in keywords.json. Please add this page to keywords.json or fetch keywords from Strapi.";
-              setStrapiStatus(`⚠️ ${keywordData.message || 'Page not found in keywords.json'}`);
+              const errorMsg =
+                keywordData.message ||
+                "No keywords found for this page in keywords.json. Please add this page to keywords.json or fetch keywords from Strapi.";
+              setStrapiStatus(
+                `⚠️ ${keywordData.message || "Page not found in keywords.json"}`
+              );
               setMainKeyword("");
               setAllKeywords([]);
               setError(errorMsg);
@@ -342,7 +376,9 @@ export default function ExistingPage() {
 
               // Don't cache when there's an error
             } else {
-              setStrapiStatus("Loaded content (no matching keyword found in keywords.json)");
+              setStrapiStatus(
+                "Loaded content (no matching keyword found in keywords.json)"
+              );
               setMainKeyword("");
               setAllKeywords([]);
             }
@@ -351,10 +387,13 @@ export default function ExistingPage() {
             setStrapiStatus("Loaded content (keyword matching failed)");
           }
         } else {
-          setStrapiStatus("Loaded content (no URL/slug available for keyword matching)");
+          setStrapiStatus(
+            "Loaded content (no URL/slug available for keyword matching)"
+          );
         }
       } else {
-        const errorMsg = data.error || data.message || "Failed to load page details";
+        const errorMsg =
+          data.error || data.message || "Failed to load page details";
         console.error("Backend error:", data);
         setStrapiStatus(`Error: ${errorMsg}`);
         setError(errorMsg);
@@ -369,14 +408,12 @@ export default function ExistingPage() {
 
   const rephraseFaqs = async (faqs) => {
     try {
-      const response = await fetch(`${API_BASE}/api/rephrase-faqs`, {
+      const data = await fetchJsonOrThrow(`${API_BASE}/api/rephrase-faqs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ faqs, content, keywordsData }),
       });
-      const data = await response.json();
 
-      console.log("Rephrased Response:", data);
       let normalized = [];
       if (Array.isArray(data)) {
         normalized = data;
@@ -391,6 +428,7 @@ export default function ExistingPage() {
       setRephrasedFaqs(normalized);
     } catch (err) {
       console.error("Rephrase error:", err);
+      // Don't throw - rephrasing is optional, continue without it
     }
   };
   const handleStart = async () => {
@@ -399,7 +437,9 @@ export default function ExistingPage() {
       return;
     }
     if (!mainKeyword && allKeywords.length === 0) {
-      setError("No keywords found. Please select a page with keywords in keywords.json.");
+      setError(
+        "No keywords found. Please select a page with keywords in keywords.json."
+      );
       return;
     }
 
@@ -407,88 +447,111 @@ export default function ExistingPage() {
     setLoading(true);
     setFaqs([]);
     setContentFaqs([]);
-    setSerpQuestions([]);
+    // setSerpQuestions([]);
 
     try {
       if (!content || content.trim().length < 100) {
         throw new Error("Content not available. Please select a page first.");
       }
 
-      const keywordsToUse = allKeywords.length > 0 ? allKeywords : [mainKeyword];
+      const keywordsToUse =
+        allKeywords.length > 0 ? allKeywords : [mainKeyword];
       const totalKeywords = keywordsToUse.length;
       let allSerpQuestions = [];
-      console.log(`Fetching PPA+Google questions for ${totalKeywords} keyword(s)...`);
       for (let i = 0; i < keywordsToUse.length; i++) {
         const kw = keywordsToUse[i];
         if (!kw || kw.trim().length === 0) continue;
-        setStrapiStatus(`[${i + 1}/${totalKeywords}] Fetching questions for: "${kw}"...`);
+        setStrapiStatus(
+          `[${i + 1}/${totalKeywords}] Fetching questions for: "${kw}"...`
+        );
 
         try {
-          const serpResponse = await fetch(`${API_BASE}/api/fetch-serp-questions`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ keyword: kw.trim() }),
-          });
-          const serpData = await serpResponse.json();
+          const serpData = await fetchJsonOrThrow(
+            `${API_BASE}/api/fetch-serp-questions`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ keyword: kw.trim() }),
+            }
+          );
 
           if (serpData.questions && serpData.questions.length > 0) {
-            const questionWords = ['how', 'what', 'when', 'where', 'why', 'who', 'which', 'can', 'does', 'is', 'are', 'will', 'should', 'could', 'would'];
-            const filteredQuestions = serpData.questions.filter(q => {
+            const questionWords = [
+              "how",
+              "what",
+              "when",
+              "where",
+              "why",
+              "who",
+              "which",
+              "can",
+              "does",
+              "is",
+              "are",
+              "will",
+              "should",
+              "could",
+              "would",
+            ];
+            const filteredQuestions = serpData.questions.filter((q) => {
               const lowerQ = q.toLowerCase().trim();
               return (
-                lowerQ.endsWith('?') ||
-                questionWords.some(word => lowerQ.startsWith(word + ' '))
+                lowerQ.endsWith("?") ||
+                questionWords.some((word) => lowerQ.startsWith(word + " "))
               );
             });
 
             allSerpQuestions = [...allSerpQuestions, ...filteredQuestions];
-            console.log(`   ✓ Found ${filteredQuestions.length} questions for "${kw}"`);
           }
         } catch (e) {
           console.error(`   ✗ Failed to fetch SERP for "${kw}"`, e);
         }
         if (i < keywordsToUse.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise((resolve) => setTimeout(resolve, 300));
         }
       }
 
       allSerpQuestions = [...new Set(allSerpQuestions)]
-        .filter(q => q && q.trim().length > 10)
+        .filter((q) => q && q.trim().length > 10)
         .slice(0, 50);
 
       // Fallback: Generate questions using AI if no SERP questions found
       if (allSerpQuestions.length === 0) {
-        console.log('No SERP questions found, using AI fallback to generate questions...');
-        setStrapiStatus('No Google questions found. Generating questions using AI...');
+        setStrapiStatus(
+          "No Google questions found. Generating questions using AI..."
+        );
 
         try {
-          const fallbackResponse = await fetch(`${API_BASE}/api/generate-fallback-questions`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              keyword: mainKeyword || keywordsToUse[0],
-              content: content.substring(0, 3000) // Limit content length
-            }),
-          });
-
-          if (fallbackResponse.ok) {
-            const fallbackData = await fallbackResponse.json();
-            if (fallbackData.questions && fallbackData.questions.length > 0) {
-              allSerpQuestions = fallbackData.questions;
-              console.log(`✓ Generated ${allSerpQuestions.length} AI fallback questions`);
-              setStrapiStatus(`Generated ${allSerpQuestions.length} AI-generated questions. Creating FAQs...`);
+          const fallbackData = await fetchJsonOrThrow(
+            `${API_BASE}/api/generate-fallback-questions`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                keyword: mainKeyword || keywordsToUse[0],
+                content: content.substring(0, 3000), // Limit content length
+              }),
             }
+          );
+
+          if (fallbackData.questions && fallbackData.questions.length > 0) {
+            allSerpQuestions = fallbackData.questions;
+
+            setStrapiStatus(
+              `Generated ${allSerpQuestions.length} AI-generated questions. Creating FAQs...`
+            );
           }
         } catch (fallbackErr) {
-          console.error('Fallback question generation failed:', fallbackErr);
+          console.error("Fallback question generation failed:", fallbackErr);
         }
       }
 
-      setSerpQuestions(allSerpQuestions);
-      console.log(`Total unique questions: ${allSerpQuestions.length}`);
-      setStrapiStatus(`Found ${allSerpQuestions.length} unique questions from ${totalKeywords} keyword(s). Generating FAQs...`);
+      // setSerpQuestions(allSerpQuestions);
+      setStrapiStatus(
+        `Found ${allSerpQuestions.length} unique questions from ${totalKeywords} keyword(s). Generating FAQs...`
+      );
       setStrapiStatus("Generating content-based FAQs...");
-      const contentFaqResponse = await fetch(
+      const contentFaqData = await fetchJsonOrThrow(
         `${API_BASE}/api/generate-faqs`,
         {
           method: "POST",
@@ -497,21 +560,13 @@ export default function ExistingPage() {
             keyword: mainKeyword || keywordsToUse[0],
             content,
             serpQuestions: [],
-            keywordsData
+            keywordsData,
           }),
         }
       );
-      if (!contentFaqResponse.ok) {
-        const errorText = await contentFaqResponse.text();
-        console.error("API Error:", errorText);
-        throw new Error(`API Error: ${contentFaqResponse.status} - ${errorText.substring(0, 200)}`);
-      }
-      const contentFaqData = await contentFaqResponse.json();
-      const normalizedContentFaqs = normalizeFaqs(
-        contentFaqData.faqs || []
-      );
+
+      // const normalizedContentFaqs = normalizeFaqs(contentFaqData.faqs || []);
       setContentFaqs(contentFaqData.faqs || []);
-      console.log(`Generated ${(contentFaqData.faqs || []).length} content-based FAQs`);
 
       if (contentFaqData.faqs && contentFaqData.faqs.length > 0) {
         setStrapiStatus("Rephrasing content FAQs...");
@@ -519,25 +574,27 @@ export default function ExistingPage() {
       }
       if (allSerpQuestions.length > 0) {
         setStrapiStatus("Generating PAA + Google FAQs from questions...");
-        const paaResponse = await fetch(`${API_BASE}/api/generate-faqs`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            keyword: mainKeyword || keywordsToUse[0],
-            content: content,
-            serpQuestions: allSerpQuestions,
-            keywordsData
-          }),
-        });
-        const paaData = await paaResponse.json();
-        const normalizedPaaFaqs = normalizeFaqs(
-          paaData.faqs || []
+        const paaData = await fetchJsonOrThrow(
+          `${API_BASE}/api/generate-faqs`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              keyword: mainKeyword || keywordsToUse[0],
+              content: content,
+              serpQuestions: allSerpQuestions,
+              keywordsData,
+            }),
+          }
         );
+        const normalizedPaaFaqs = normalizeFaqs(paaData.faqs || []);
         setFaqs(normalizedPaaFaqs);
-
-        console.log(`Generated ${(paaData.faqs || []).length} PAA+Google FAQs`);
       }
-      setStrapiStatus(`FAQ Generation Complete! (${(contentFaqData.faqs || []).length} content FAQs, ${faqs.length} PAA FAQs)`);
+      setStrapiStatus(
+        `FAQ Generation Complete! (${
+          (contentFaqData.faqs || []).length
+        } content FAQs, ${faqs.length} PAA FAQs)`
+      );
     } catch (err) {
       console.error("FAQ Generation error:", err);
       setError(err.message);
@@ -565,16 +622,36 @@ export default function ExistingPage() {
             Fetch content from Strapi → Generate FAQs
           </p>
         </div>
-        <div className="grid md:grid-cols-2 gap-4 mb-6">
+        <div
+          className="grid md:grid-cols-2 gap-4 mb-6 animate-fade-in"
+          style={{ animationDelay: "0.1s" }}
+        >
           <div>
             <label className="block font-semibold mb-2 text-gray-700">
               Select Strapi Collection
             </label>
-            <Dropdown
-              options={STRAPI_COLLECTIONS}
-              value={STRAPI_COLLECTIONS.find(col => col.value === selectedStrapiCollection)}
+            <Select
+              options={STRAPI_COLLECTIONS.map((col) => ({
+                value: col.value,
+                label: col.label,
+              }))}
+              value={
+                selectedStrapiCollection
+                  ? STRAPI_COLLECTIONS.find(
+                      (col) => col.value === selectedStrapiCollection
+                    )
+                    ? {
+                        value: selectedStrapiCollection,
+                        label:
+                          STRAPI_COLLECTIONS.find(
+                            (col) => col.value === selectedStrapiCollection
+                          )?.label || "",
+                      }
+                    : null
+                  : null
+              }
               onChange={(option) => {
-                setSelectedStrapiCollection(option.value);
+                setSelectedStrapiCollection(option?.value || "");
                 setSelectedStrapiPage("");
                 setStrapiPages([]);
                 setError("");
@@ -583,8 +660,35 @@ export default function ExistingPage() {
                 setRephrasedFaqs([]);
               }}
               placeholder="-- Select Collection --"
-              controlClassName="!h-12 !flex !items-center !border-gray-300 !rounded-lg !px-3 !bg-white !text-base !hover:border-[rgb(230,90,0)] !transition-all !duration-300"
-              placeholderClassName="!text-gray-500"
+              isClearable={false}
+              styles={{
+                control: (base, state) => ({
+                  ...base,
+                  minHeight: "48px",
+                  height: "48px",
+                  borderColor: state.isFocused ? "rgb(230,90,0)" : "#d1d5db",
+                  borderRadius: "0.5rem",
+                  boxShadow: state.isFocused
+                    ? "0 0 0 2px rgba(230, 90, 0, 0.2)"
+                    : "none",
+                  "&:hover": {
+                    borderColor: "rgb(230,90,0)",
+                  },
+                }),
+                placeholder: (base) => ({
+                  ...base,
+                  color: "#6b7280",
+                }),
+                valueContainer: (base) => ({
+                  ...base,
+                  padding: "0 12px",
+                }),
+                input: (base) => ({
+                  ...base,
+                  margin: 0,
+                  padding: 0,
+                }),
+              }}
               className="w-full"
             />
           </div>
@@ -593,28 +697,62 @@ export default function ExistingPage() {
             <label className="block font-semibold mb-2 text-gray-700">
               Select Page
             </label>
-            <Dropdown
-              options={strapiPages.map(page => {
-                const rawTitle = page.meta_data_title || page.title || page.slug || `Page ${page.id}`;
+            <Select
+              options={strapiPages.map((page) => {
+                const rawTitle =
+                  page.meta_data_title ||
+                  page.title ||
+                  page.slug ||
+                  `Page ${page.id}`;
                 const cleanTitle = stripHtml(rawTitle);
-                const maxLen = window.innerWidth < 640 ? 24 : window.innerWidth < 1024 ? 32 : 38;
-                const titleShort = cleanTitle.length > maxLen ? cleanTitle.slice(0, maxLen) + "…" : cleanTitle;
-                return { value: page.id.toString(), label: titleShort + (page.slug ? ` (${page.slug})` : '') };
+                const maxLen =
+                  window.innerWidth < 640
+                    ? 24
+                    : window.innerWidth < 1024
+                    ? 32
+                    : 38;
+                const titleShort =
+                  cleanTitle.length > maxLen
+                    ? cleanTitle.slice(0, maxLen) + "…"
+                    : cleanTitle;
+                return {
+                  value: page.id.toString(),
+                  label: titleShort + (page.slug ? ` (${page.slug})` : ""),
+                };
               })}
-              value={selectedStrapiPage ? {
-                value: selectedStrapiPage,
-                label: (() => {
-                  const page = strapiPages.find(p => p.id.toString() === selectedStrapiPage);
-                  if (!page) return "";
-                  const rawTitle = page.meta_data_title || page.title || page.slug || `Page ${page.id}`;
-                  const cleanTitle = stripHtml(rawTitle);
-                  const maxLen = window.innerWidth < 640 ? 24 : window.innerWidth < 1024 ? 32 : 38;
-                  const titleShort = cleanTitle.length > maxLen ? cleanTitle.slice(0, maxLen) + "…" : cleanTitle;
-                  return titleShort + (page.slug ? ` (${page.slug})` : '');
-                })()
-              } : null}
+              value={
+                selectedStrapiPage
+                  ? (() => {
+                      const page = strapiPages.find(
+                        (p) => p.id.toString() === selectedStrapiPage
+                      );
+                      if (!page) return null;
+                      const rawTitle =
+                        page.meta_data_title ||
+                        page.title ||
+                        page.slug ||
+                        `Page ${page.id}`;
+                      const cleanTitle = stripHtml(rawTitle);
+                      const maxLen =
+                        window.innerWidth < 640
+                          ? 24
+                          : window.innerWidth < 1024
+                          ? 32
+                          : 38;
+                      const titleShort =
+                        cleanTitle.length > maxLen
+                          ? cleanTitle.slice(0, maxLen) + "…"
+                          : cleanTitle;
+                      return {
+                        value: selectedStrapiPage,
+                        label:
+                          titleShort + (page.slug ? ` (${page.slug})` : ""),
+                      };
+                    })()
+                  : null
+              }
               onChange={(option) => {
-                setSelectedStrapiPage(option.value);
+                setSelectedStrapiPage(option?.value || "");
                 setContent("");
                 setMainKeyword("");
                 setAllKeywords([]);
@@ -625,20 +763,56 @@ export default function ExistingPage() {
                 setFaqs([]);
                 setRephrasedFaqs([]);
 
-                if (option.value) {
+                if (option?.value) {
                   fetchPageDetails(option.value);
                 }
               }}
-              disabled={!selectedStrapiCollection || strapiPages.length === 0}
+              isDisabled={!selectedStrapiCollection || strapiPages.length === 0}
               placeholder="-- Select Page --"
-              controlClassName={`!h-12 !flex !items-center !border-gray-300 !rounded-lg !px-3 !text-base !transition-all !duration-300 ${(!selectedStrapiCollection || strapiPages.length === 0) ? "!bg-gray-100 !cursor-not-allowed" : "!bg-white !hover:border-[rgb(230,90,0)]"}`}
-              placeholderClassName="!text-gray-500"
+              isClearable={false}
+              styles={{
+                control: (base, state) => ({
+                  ...base,
+                  minHeight: "48px",
+                  height: "48px",
+                  borderColor: state.isFocused ? "rgb(230,90,0)" : "#d1d5db",
+                  borderRadius: "0.5rem",
+                  backgroundColor: state.isDisabled ? "#f3f4f6" : "white",
+                  cursor: state.isDisabled ? "not-allowed" : "pointer",
+                  boxShadow: state.isFocused
+                    ? "0 0 0 2px rgba(230, 90, 0, 0.2)"
+                    : "none",
+                  "&:hover": {
+                    borderColor: state.isDisabled ? "#e5e7eb" : "rgb(230,90,0)",
+                  },
+                }),
+                placeholder: (base) => ({
+                  ...base,
+                  color: "#6b7280",
+                }),
+                valueContainer: (base) => ({
+                  ...base,
+                  padding: "0 12px",
+                }),
+                input: (base) => ({
+                  ...base,
+                  margin: 0,
+                  padding: 0,
+                }),
+                singleValue: (base, state) => ({
+                  ...base,
+                  color: state.isDisabled ? "#9ca3af" : "#111827",
+                }),
+              }}
               className="w-full"
             />
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 mb-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+        <div
+          className="flex justify-end gap-3 mb-6 animate-fade-in"
+          style={{ animationDelay: "0.2s" }}
+        >
           <button
             onClick={handleStart}
             disabled={loading || error !== ""}
@@ -646,28 +820,49 @@ export default function ExistingPage() {
           >
             {loading ? (
               <span className="flex items-center gap-2">
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
                 Processing...
               </span>
-            ) : "Start Generating FAQs"}
+            ) : (
+              "Start Generating FAQs"
+            )}
           </button>
         </div>
 
         {strapiStatus && (
           <p
-            className={`font-semibold mb-4 animate-fade-in ${strapiStatus.startsWith("✅")
-              ? "text-green-600"
-              : "text-gray-600"
-              }`}
+            className={`font-semibold mb-4 animate-fade-in ${
+              strapiStatus.startsWith("✅") ? "text-green-600" : "text-gray-600"
+            }`}
           >
             {strapiStatus}
           </p>
         )}
 
-        {error && <p className="text-red-600 font-semibold mb-4 animate-fade-in">{error}</p>}
+        {error && (
+          <p className="text-red-600 font-semibold mb-4 animate-fade-in">
+            {error}
+          </p>
+        )}
 
         {allKeywords.length > 0 && (
           <div className="mb-6 p-4 rounded-lg shadow-sm animate-fade-in transition-all duration-500 hover:shadow-md">
@@ -707,15 +902,8 @@ export default function ExistingPage() {
               emptyText="No PAA / Google FAQs found"
             />
           </div>
-
         )}
       </div>
-      <style>{`
-        .Dropdown-root.is-open .Dropdown-control {
-          border-color: rgb(230,90,0) !important;
-          box-shadow: 0 0 0 2px rgba(230, 90, 0, 0.2) !important;
-        }
-      `}</style>
     </div>
   );
 }
