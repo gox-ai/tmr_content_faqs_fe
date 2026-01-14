@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       port: 3000,
+      allowedHosts: ["tools.twominutereports.com", "twominutereports.com"],
     },
     define: {
       "import.meta.env.REACT_APP_API_URL": JSON.stringify(
