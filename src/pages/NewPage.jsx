@@ -24,7 +24,7 @@ export default function App() {
   const [copiedContentIndex, setCopiedContentIndex] = useState(null);
   const [rephrasedFaqs, setRephrasedFaqs] = useState([]);
 
-  const API_BASE = process.env.REACT_APP_API_URL;
+  const API_BASE = import.meta.env.REACT_APP_API_URL;
 
   const fetchSerpQuestions = async () => {
     if (!keyword.trim()) {

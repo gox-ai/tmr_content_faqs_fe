@@ -6,7 +6,8 @@ import { normalizeFaqs } from "./ai-purifier";
 import Select from "react-select";
 import { fetchJsonOrThrow } from "../utils/api";
 
-const API_BASE = process.env.REACT_APP_API_URL;
+const API_BASE = import.meta.env.REACT_APP_API_URL;
+
 const STRAPI_COLLECTIONS = [
   { label: "Solution Pages", value: "solution-pages" },
   { label: "Alternative Pages v2", value: "alternative-pages-v2s" },
@@ -175,7 +176,7 @@ export default function ExistingPage() {
       const cacheKey = `strapi_pages_${selectedStrapiCollection}`;
       const cachedPages = getCachedData(cacheKey);
 
-      if (cachedPages) {
+      if (cachedPages && Array.isArray(cachedPages) && cachedPages.length > 0) {
         setStrapiPages(cachedPages);
         setStrapiStatus(`Loaded ${cachedPages.length} pages (from cache)`);
         return;
