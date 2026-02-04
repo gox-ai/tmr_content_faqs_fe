@@ -109,6 +109,14 @@ export default function ExistingPage() {
   const [selectedStrapiCollection, setSelectedStrapiCollection] = useState("");
   const [strapiPages, setStrapiPages] = useState([]);
   const [selectedStrapiPage, setSelectedStrapiPage] = useState("");
+  const [keywordsCache, setKeywordsCache] = useState({ result: {} });
+  useEffect(() => {
+    fetch(`${API_BASE}/api/page-has-keywords`, { method: "POST" })
+      .then((res) => res.json())
+      .then((data) => {
+        setKeywordsCache({ result: data });
+      });
+  }, []);
 
   useEffect(() => {
     const loadKeywords = async () => {
@@ -705,21 +713,11 @@ export default function ExistingPage() {
             <Select
               options={strapiPages
                 .filter((page) => {
-                  if (!keywordsData) return false;
-                  const actualCollection =
-                    page._sourceCollection || selectedStrapiCollection;
-                  const categoryData = keywordsData[actualCollection];
-                  if (!categoryData || !Array.isArray(categoryData))
-                    return false;
-                  const matchedPage = categoryData.find(
-                    (item) => item.slug === page.slug,
+                  const key = `${page._sourceCollection}-${page.id}`;
+                  const hasKeywords = Array.isArray(
+                    keywordsCache.result?.[key],
                   );
-                  return (
-                    matchedPage &&
-                    matchedPage.keywords &&
-                    Array.isArray(matchedPage.keywords) &&
-                    matchedPage.keywords.length > 0
-                  );
+                  return hasKeywords;
                 })
                 .map((page) => {
                   const rawTitle =
