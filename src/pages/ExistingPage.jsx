@@ -109,6 +109,14 @@ export default function ExistingPage() {
   const [selectedStrapiCollection, setSelectedStrapiCollection] = useState("");
   const [strapiPages, setStrapiPages] = useState([]);
   const [selectedStrapiPage, setSelectedStrapiPage] = useState("");
+  const [keywordsCache, setKeywordsCache] = useState({ result: {} });
+  useEffect(() => {
+    fetch(`${API_BASE}/api/page-has-keywords`, { method: "POST" })
+      .then((res) => res.json())
+      .then((data) => {
+        setKeywordsCache({ result: data });
+      });
+  }, []);
 
   useEffect(() => {
     const loadKeywords = async () => {
@@ -133,7 +141,7 @@ export default function ExistingPage() {
           !data ||
           Object.keys(data).length === 0 ||
           Object.values(data).every(
-            (arr) => Array.isArray(arr) && arr.length === 0
+            (arr) => Array.isArray(arr) && arr.length === 0,
           );
 
         if (isEmpty) {
@@ -192,7 +200,7 @@ export default function ExistingPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ collection: "feature-pages" }),
-          }
+          },
         );
 
         if (data.pages) {
@@ -260,7 +268,7 @@ export default function ExistingPage() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ collection }),
-            }
+            },
           );
           if (data.pages) {
             const pagesWithCollection = data.pages.map((page) => ({
@@ -321,7 +329,7 @@ export default function ExistingPage() {
             collection: actualCollection,
             pageId: pageId,
           }),
-        }
+        },
       );
 
       if (data.content) {
@@ -343,7 +351,7 @@ export default function ExistingPage() {
                   slug: data.slug,
                   category: categoryName,
                 }),
-              }
+              },
             );
 
             if (keywordData.keywords && keywordData.keywords.length > 0) {
@@ -368,7 +376,7 @@ export default function ExistingPage() {
                 keywordData.message ||
                 "No keywords found for this page in keywords.json. Please add this page to keywords.json or fetch keywords from Strapi.";
               setStrapiStatus(
-                `⚠️ ${keywordData.message || "Page not found in keywords.json"}`
+                `⚠️ ${keywordData.message || "Page not found in keywords.json"}`,
               );
               setMainKeyword("");
               setAllKeywords([]);
@@ -378,7 +386,7 @@ export default function ExistingPage() {
               // Don't cache when there's an error
             } else {
               setStrapiStatus(
-                "Loaded content (no matching keyword found in keywords.json)"
+                "Loaded content (no matching keyword found in keywords.json)",
               );
               setMainKeyword("");
               setAllKeywords([]);
@@ -389,7 +397,7 @@ export default function ExistingPage() {
           }
         } else {
           setStrapiStatus(
-            "Loaded content (no URL/slug available for keyword matching)"
+            "Loaded content (no URL/slug available for keyword matching)",
           );
         }
       } else {
@@ -439,7 +447,7 @@ export default function ExistingPage() {
     }
     if (!mainKeyword && allKeywords.length === 0) {
       setError(
-        "No keywords found. Please select a page with keywords in keywords.json."
+        "No keywords found. Please select a page with keywords in keywords.json.",
       );
       return;
     }
@@ -463,7 +471,7 @@ export default function ExistingPage() {
         const kw = keywordsToUse[i];
         if (!kw || kw.trim().length === 0) continue;
         setStrapiStatus(
-          `[${i + 1}/${totalKeywords}] Fetching questions for: "${kw}"...`
+          `[${i + 1}/${totalKeywords}] Fetching questions for: "${kw}"...`,
         );
 
         try {
@@ -473,7 +481,7 @@ export default function ExistingPage() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ keyword: kw.trim() }),
-            }
+            },
           );
 
           if (serpData.questions && serpData.questions.length > 0) {
@@ -519,7 +527,7 @@ export default function ExistingPage() {
       // Fallback: Generate questions using AI if no SERP questions found
       if (allSerpQuestions.length === 0) {
         setStrapiStatus(
-          "No Google questions found. Generating questions using AI..."
+          "No Google questions found. Generating questions using AI...",
         );
 
         try {
@@ -532,14 +540,14 @@ export default function ExistingPage() {
                 keyword: mainKeyword || keywordsToUse[0],
                 content: content.substring(0, 3000), // Limit content length
               }),
-            }
+            },
           );
 
           if (fallbackData.questions && fallbackData.questions.length > 0) {
             allSerpQuestions = fallbackData.questions;
 
             setStrapiStatus(
-              `Generated ${allSerpQuestions.length} AI-generated questions. Creating FAQs...`
+              `Generated ${allSerpQuestions.length} AI-generated questions. Creating FAQs...`,
             );
           }
         } catch (fallbackErr) {
@@ -549,7 +557,7 @@ export default function ExistingPage() {
 
       // setSerpQuestions(allSerpQuestions);
       setStrapiStatus(
-        `Found ${allSerpQuestions.length} unique questions from ${totalKeywords} keyword(s). Generating FAQs...`
+        `Found ${allSerpQuestions.length} unique questions from ${totalKeywords} keyword(s). Generating FAQs...`,
       );
       setStrapiStatus("Generating content-based FAQs...");
       const contentFaqData = await fetchJsonOrThrow(
@@ -563,7 +571,7 @@ export default function ExistingPage() {
             serpQuestions: [],
             keywordsData,
           }),
-        }
+        },
       );
 
       // const normalizedContentFaqs = normalizeFaqs(contentFaqData.faqs || []);
@@ -586,7 +594,7 @@ export default function ExistingPage() {
               serpQuestions: allSerpQuestions,
               keywordsData,
             }),
-          }
+          },
         );
         const normalizedPaaFaqs = normalizeFaqs(paaData.faqs || []);
         setFaqs(normalizedPaaFaqs);
@@ -594,7 +602,7 @@ export default function ExistingPage() {
       setStrapiStatus(
         `FAQ Generation Complete! (${
           (contentFaqData.faqs || []).length
-        } content FAQs, ${faqs.length} PAA FAQs)`
+        } content FAQs, ${faqs.length} PAA FAQs)`,
       );
     } catch (err) {
       console.error("FAQ Generation error:", err);
@@ -639,13 +647,13 @@ export default function ExistingPage() {
               value={
                 selectedStrapiCollection
                   ? STRAPI_COLLECTIONS.find(
-                      (col) => col.value === selectedStrapiCollection
+                      (col) => col.value === selectedStrapiCollection,
                     )
                     ? {
                         value: selectedStrapiCollection,
                         label:
                           STRAPI_COLLECTIONS.find(
-                            (col) => col.value === selectedStrapiCollection
+                            (col) => col.value === selectedStrapiCollection,
                           )?.label || "",
                       }
                     : null
@@ -656,6 +664,10 @@ export default function ExistingPage() {
                 setSelectedStrapiPage("");
                 setStrapiPages([]);
                 setError("");
+                setStrapiStatus("");
+                setMainKeyword("");
+                setAllKeywords([]);
+                setContent("");
                 setContentFaqs([]);
                 setFaqs([]);
                 setRephrasedFaqs([]);
@@ -699,33 +711,41 @@ export default function ExistingPage() {
               Select Page
             </label>
             <Select
-              options={strapiPages.map((page) => {
-                const rawTitle =
-                  page.meta_data_title ||
-                  page.title ||
-                  page.slug ||
-                  `Page ${page.id}`;
-                const cleanTitle = stripHtml(rawTitle);
-                const maxLen =
-                  window.innerWidth < 640
-                    ? 24
-                    : window.innerWidth < 1024
-                    ? 32
-                    : 38;
-                const titleShort =
-                  cleanTitle.length > maxLen
-                    ? cleanTitle.slice(0, maxLen) + "…"
-                    : cleanTitle;
-                return {
-                  value: page.id.toString(),
-                  label: titleShort + (page.slug ? ` (${page.slug})` : ""),
-                };
-              })}
+              options={strapiPages
+                .filter((page) => {
+                  const key = `${page._sourceCollection}-${page.id}`;
+                  const hasKeywords = Array.isArray(
+                    keywordsCache.result?.[key],
+                  );
+                  return hasKeywords;
+                })
+                .map((page) => {
+                  const rawTitle =
+                    page.meta_data_title ||
+                    page.title ||
+                    page.slug ||
+                    `Page ${page.id}`;
+                  const cleanTitle = stripHtml(rawTitle);
+                  const maxLen =
+                    window.innerWidth < 640
+                      ? 24
+                      : window.innerWidth < 1024
+                        ? 32
+                        : 38;
+                  const titleShort =
+                    cleanTitle.length > maxLen
+                      ? cleanTitle.slice(0, maxLen) + "…"
+                      : cleanTitle;
+                  return {
+                    value: page.id.toString(),
+                    label: titleShort + (page.slug ? ` (${page.slug})` : ""),
+                  };
+                })}
               value={
                 selectedStrapiPage
                   ? (() => {
                       const page = strapiPages.find(
-                        (p) => p.id.toString() === selectedStrapiPage
+                        (p) => p.id.toString() === selectedStrapiPage,
                       );
                       if (!page) return null;
                       const rawTitle =
@@ -738,8 +758,8 @@ export default function ExistingPage() {
                         window.innerWidth < 640
                           ? 24
                           : window.innerWidth < 1024
-                          ? 32
-                          : 38;
+                            ? 32
+                            : 38;
                       const titleShort =
                         cleanTitle.length > maxLen
                           ? cleanTitle.slice(0, maxLen) + "…"
@@ -816,7 +836,12 @@ export default function ExistingPage() {
         >
           <button
             onClick={handleStart}
-            disabled={loading || error !== ""}
+            disabled={
+              loading ||
+              error !== "" ||
+              !selectedStrapiCollection ||
+              !selectedStrapiPage
+            }
             className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
           >
             {loading ? (
