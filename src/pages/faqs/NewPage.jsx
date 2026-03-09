@@ -2,13 +2,15 @@ import React, { useState } from "react";
 import LoadingSpinner from "./LoadingSpinner";
 import FAQSection from "./FAQCard";
 import { normalizeFaqs } from "./ai-purifier";
-import { fetchJsonOrThrow } from "../utils/api";
+import { fetchJsonOrThrow } from "../../utils/api";
+
 const cleanKeywords = (keywords) => {
   if (!Array.isArray(keywords)) return [];
   return keywords
     .map((k) => (typeof k === "string" ? k : k?.list_of_keywords || ""))
     .filter((k) => k && k.trim().length > 0);
 };
+
 export default function App() {
   const [keyword, setKeyword] = useState("");
   const [content, setContent] = useState("");
@@ -82,7 +84,7 @@ export default function App() {
       setAutoShowFaqs(true);
     } catch (err) {
       console.error("Error generating FAQs:", err);
-      throw err; // Re-throw to be caught by parent try-catch
+      throw err;
     }
   };
 
@@ -125,13 +127,13 @@ export default function App() {
         setRephrasedFaqs(rephrased);
       } catch (rephraseErr) {
         console.error("Error rephrasing FAQs:", rephraseErr);
-        // Don't throw - rephrasing is optional, continue without it
       }
     } catch (err) {
       console.error("Error generating content FAQs:", err);
-      throw err; // Re-throw to be caught by parent try-catch
+      throw err;
     }
   };
+
   const reset = () => {
     setKeyword("");
     setContent("");
@@ -141,6 +143,7 @@ export default function App() {
     setAutoShowFaqs(false);
     setContentFaqs([]);
   };
+
   return (
     <div className="min-h-screen bg-[#eef2ff] p-8">
       {loading && (
@@ -170,7 +173,7 @@ export default function App() {
               value={keyword}
               onChange={(e) => {
                 setKeyword(e.target.value);
-                setError(""); // Clear error on input change
+                setError("");
               }}
               placeholder="e.g., marketing reporting software"
               className="w-full p-3 mb-6 rounded-lg border border-gray-300"
@@ -181,7 +184,7 @@ export default function App() {
               value={content}
               onChange={(e) => {
                 setContent(e.target.value);
-                setError(""); // Clear error on input change
+                setError("");
               }}
               placeholder="Paste your content here..."
               rows={8}
@@ -189,14 +192,6 @@ export default function App() {
             />
 
             <div className="text-right mt-6 flex justify-end gap-4">
-              {/* <button
-                onClick={fetchStrapiKeywords}
-                disabled={loading}
-                className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50"
-              >
-                Fetch Keywords from Strapi
-              </button> */}
-
               <button
                 onClick={fetchSerpQuestions}
                 disabled={loading || error !== ""}
@@ -280,3 +275,4 @@ export default function App() {
     </div>
   );
 }
+

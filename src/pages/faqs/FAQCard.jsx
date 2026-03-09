@@ -89,6 +89,7 @@ function FAQItem({
     </div>
   );
 }
+
 export default function FAQSection({
   title,
   faqs = [],
@@ -124,3 +125,4 @@ export default function FAQSection({
     </div>
   );
 }
+

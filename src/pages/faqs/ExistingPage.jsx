@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "./LoadingSpinner";
-import { getCachedData, setCachedData } from "../utils/cacheUtils";
+import { getCachedData, setCachedData } from "../../utils/cacheUtils";
 import FAQSection from "./FAQCard";
 import { normalizeFaqs } from "./ai-purifier";
 import Select from "react-select";
-import { fetchJsonOrThrow } from "../utils/api";
+import { fetchJsonOrThrow } from "../../utils/api";
 
 const API_BASE = import.meta.env.REACT_APP_API_URL;
 
@@ -53,6 +53,7 @@ const STRAPI_COLLECTIONS = [
     value: "looker-studio-template-pages",
   },
 ];
+
 const COLLECTION_TO_CATEGORY_MAP = {
   "seo-pages": "SEO Landing Pages",
   "solution-pages": "Solution Pages",
@@ -79,6 +80,7 @@ const COLLECTION_TO_CATEGORY_MAP = {
   "documents-pages": "Documents Pages",
   "other-pages": "Other Pages",
 };
+
 const stripHtml = (html) => {
   if (!html) return "";
   const tmp = document.createElement("DIV");
@@ -90,13 +92,14 @@ export default function ExistingPage() {
   const [mainKeyword, setMainKeyword] = useState("");
   const [allKeywords, setAllKeywords] = useState([]);
   const [content, setContent] = useState("");
+
   const cleanKeywords = (keywords) => {
     if (!Array.isArray(keywords)) return [];
     return keywords
       .map((k) => (typeof k === "string" ? k : k?.list_of_keywords || ""))
       .filter((k) => k && k.trim().length > 0);
   };
-  // const [serpQuestions, setSerpQuestions] = useState([]);
+
   const [faqs, setFaqs] = useState([]);
   const [contentFaqs, setContentFaqs] = useState([]);
   const [rephrasedFaqs, setRephrasedFaqs] = useState([]);
@@ -112,14 +115,12 @@ export default function ExistingPage() {
 
   useEffect(() => {
     const loadKeywords = async () => {
-      // Try to load from cache first
       const cachedKeywords = getCachedData("keywords_json");
       if (cachedKeywords && Object.keys(cachedKeywords).length > 0) {
         setKeywordsData(cachedKeywords);
         return;
       }
 
-      // Try to fetch from file
       try {
         const res = await fetch("/keywords.json");
         if (!res.ok) {
@@ -128,7 +129,6 @@ export default function ExistingPage() {
 
         const data = await res.json();
 
-        // Check if keywords.json is empty or has no data
         const isEmpty =
           !data ||
           Object.keys(data).length === 0 ||
@@ -172,7 +172,6 @@ export default function ExistingPage() {
 
   const fetchStrapiPages = async () => {
     try {
-      // Check cache first
       const cacheKey = `strapi_pages_${selectedStrapiCollection}`;
       const cachedPages = getCachedData(cacheKey);
 
@@ -184,7 +183,6 @@ export default function ExistingPage() {
 
       setStrapiStatus("Loading pages from Strapi... pls wait");
 
-      // If it's feature-pages, fetch normally
       if (selectedStrapiCollection === "feature-pages") {
         const data = await fetchJsonOrThrow(
           `${API_BASE}/api/fetch-strapi-content`,
@@ -196,14 +194,12 @@ export default function ExistingPage() {
         );
 
         if (data.pages) {
-          // Add collection info to each page
           const pagesWithCollection = data.pages.map((page) => ({
             ...page,
             _sourceCollection: "feature-pages",
           }));
           setStrapiPages(pagesWithCollection);
           setStrapiStatus(`Loaded ${pagesWithCollection.length} pages`);
-          // Cache the result
           setCachedData(cacheKey, pagesWithCollection);
         } else {
           setStrapiStatus("Failed to load pages");
@@ -211,6 +207,7 @@ export default function ExistingPage() {
         }
         return;
       }
+
       const collectionMappings = {
         blog: ["topical-authority-pages"],
         integrations: [
@@ -237,6 +234,7 @@ export default function ExistingPage() {
           "other-pages",
         ],
       };
+
       let targetCollections = [];
       if (selectedStrapiCollection === "url-pattern-blog") {
         targetCollections = collectionMappings.blog;
@@ -288,14 +286,12 @@ export default function ExistingPage() {
     if (selectedStrapiCollection) {
       fetchStrapiPages();
     } else {
-      // Clear pages when collection is deselected
       setStrapiPages([]);
     }
   }, [selectedStrapiCollection]);
 
   const fetchPageDetails = async (pageId) => {
     try {
-      // Check cache first
       const cacheKey = `page_details_${pageId}`;
       const cachedPageDetails = getCachedData(cacheKey);
 
@@ -355,7 +351,6 @@ export default function ExistingPage() {
               setAllKeywords(allKws);
               setStrapiStatus(status);
 
-              // Cache the page details
               setCachedData(cacheKey, {
                 content: data.content,
                 mainKeyword: mainKw,
@@ -363,7 +358,6 @@ export default function ExistingPage() {
                 status: status,
               });
             } else if (keywordData.status === 404 || keywordData.notFound) {
-              // Page not found in keywords.json
               const errorMsg =
                 keywordData.message ||
                 "No keywords found for this page in keywords.json. Please add this page to keywords.json or fetch keywords from Strapi.";
@@ -374,8 +368,6 @@ export default function ExistingPage() {
               setAllKeywords([]);
               setError(errorMsg);
               console.warn(`❌ Page "${data.slug}" not found in keywords.json`);
-
-              // Don't cache when there's an error
             } else {
               setStrapiStatus(
                 "Loaded content (no matching keyword found in keywords.json)"
@@ -429,9 +421,9 @@ export default function ExistingPage() {
       setRephrasedFaqs(normalized);
     } catch (err) {
       console.error("Rephrase error:", err);
-      // Don't throw - rephrasing is optional, continue without it
     }
   };
+
   const handleStart = async () => {
     if (!selectedStrapiCollection || !selectedStrapiPage) {
       setError("Please select a Strapi collection and page first.");
@@ -448,7 +440,6 @@ export default function ExistingPage() {
     setLoading(true);
     setFaqs([]);
     setContentFaqs([]);
-    // setSerpQuestions([]);
 
     try {
       if (!content || content.trim().length < 100) {
@@ -516,7 +507,6 @@ export default function ExistingPage() {
         .filter((q) => q && q.trim().length > 10)
         .slice(0, 50);
 
-      // Fallback: Generate questions using AI if no SERP questions found
       if (allSerpQuestions.length === 0) {
         setStrapiStatus(
           "No Google questions found. Generating questions using AI..."
@@ -530,7 +520,7 @@ export default function ExistingPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 keyword: mainKeyword || keywordsToUse[0],
-                content: content.substring(0, 3000), // Limit content length
+                content: content.substring(0, 3000),
               }),
             }
           );
@@ -547,7 +537,6 @@ export default function ExistingPage() {
         }
       }
 
-      // setSerpQuestions(allSerpQuestions);
       setStrapiStatus(
         `Found ${allSerpQuestions.length} unique questions from ${totalKeywords} keyword(s). Generating FAQs...`
       );
@@ -566,7 +555,6 @@ export default function ExistingPage() {
         }
       );
 
-      // const normalizedContentFaqs = normalizeFaqs(contentFaqData.faqs || []);
       setContentFaqs(contentFaqData.faqs || []);
 
       if (contentFaqData.faqs && contentFaqData.faqs.length > 0) {
@@ -603,6 +591,7 @@ export default function ExistingPage() {
       setLoading(false);
     }
   };
+
   return (
     <div className="min-h-screen bg-slate-50 p-8 font-sans">
       {loading && (
@@ -758,8 +747,7 @@ export default function ExistingPage() {
                 setMainKeyword("");
                 setAllKeywords([]);
                 setStrapiStatus("");
-                setError(""); // Clear error on selection change
-                // Clear generated FAQs
+                setError("");
                 setContentFaqs([]);
                 setFaqs([]);
                 setRephrasedFaqs([]);
@@ -908,3 +896,4 @@ export default function ExistingPage() {
     </div>
   );
 }
+

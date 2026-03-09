@@ -7,7 +7,6 @@ export default function LoadingSpinner({
   color = "#FF6700",
   showProgress = false,
 }) {
-
   const [dots, setDots] = useState("");
 
   useEffect(() => {
@@ -84,3 +83,4 @@ export default function LoadingSpinner({
     </>
   );
 }
+
