@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import LoadingSpinner from "./LoadingSpinner";
 import FAQSection from "./FAQCard";
 import { normalizeFaqs } from "./ai-purifier";
-import { fetchJsonOrThrow } from "../utils/api";
+import { fetchJsonOrThrow } from "../../utils/api";
 const cleanKeywords = (keywords) => {
   if (!Array.isArray(keywords)) return [];
   return keywords
@@ -42,7 +42,7 @@ export default function App() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ keyword }),
-        }
+        },
       );
 
       if (!data.questions?.length) {
@@ -90,7 +90,7 @@ export default function App() {
     try {
       if (!content.trim()) {
         throw new Error(
-          "Please provide content to generate content-based FAQs."
+          "Please provide content to generate content-based FAQs.",
         );
       }
 
@@ -119,7 +119,7 @@ export default function App() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ faqs: data.faqs, content }),
-          }
+          },
         );
 
         setRephrasedFaqs(rephrased);
@@ -212,10 +212,10 @@ export default function App() {
                   strapiStatus.startsWith("✅")
                     ? "text-green-600"
                     : strapiStatus.startsWith("⚠️")
-                    ? "text-amber-600"
-                    : strapiStatus.startsWith("❌")
-                    ? "text-red-600"
-                    : "text-gray-600"
+                      ? "text-amber-600"
+                      : strapiStatus.startsWith("❌")
+                        ? "text-red-600"
+                        : "text-gray-600"
                 }`}
               >
                 {strapiStatus}
