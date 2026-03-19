@@ -37,7 +37,7 @@ export default function App() {
 
     try {
       const data = await fetchJsonOrThrow(
-        `${API_BASE}/api/fetch-serp-questions`,
+        `${API_BASE}/api/faq/fetch-serp-questions`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -68,7 +68,7 @@ export default function App() {
       setFaqs([]);
       setAutoShowFaqs(false);
 
-      const data = await fetchJsonOrThrow(`${API_BASE}/api/generate-faqs`, {
+      const data = await fetchJsonOrThrow(`${API_BASE}/api/faq/generate-faqs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ keyword, content, serpQuestions: questions }),
@@ -97,7 +97,7 @@ export default function App() {
       const keywordsToUse = cleanKeywords(strapiKeywords);
       const mainKeyword = keyword || keywordsToUse[0];
 
-      const data = await fetchJsonOrThrow(`${API_BASE}/api/generate-faqs`, {
+      const data = await fetchJsonOrThrow(`${API_BASE}/api/faq/generate-faqs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -114,7 +114,7 @@ export default function App() {
 
       try {
         const rephrased = await fetchJsonOrThrow(
-          `${API_BASE}/api/rephrase-faqs`,
+          `${API_BASE}/api/faq/rephrase-faqs`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -208,15 +208,14 @@ export default function App() {
 
             {strapiStatus && (
               <div
-                className={`mt-4 font-semibold ${
-                  strapiStatus.startsWith("✅")
+                className={`mt-4 font-semibold ${strapiStatus.startsWith("✅")
                     ? "text-green-600"
                     : strapiStatus.startsWith("⚠️")
                       ? "text-amber-600"
                       : strapiStatus.startsWith("❌")
                         ? "text-red-600"
                         : "text-gray-600"
-                }`}
+                  }`}
               >
                 {strapiStatus}
               </div>
