@@ -1,21 +1,35 @@
-"use client";
-
 import { useState } from "react";
 
-const ArrowLeft = ({ size = 24, color = "currentColor" }: { size?: number; color?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none"
-    stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m12 19-7-7 7-7" /><path d="M19 12H5" />
+const ArrowLeft = ({
+  size = 24,
+  color = "currentColor",
+}: {
+  size?: number;
+  color?: string;
+}) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m12 19-7-7 7-7" />
+    <path d="M19 12H5" />
   </svg>
 );
 
-export default function AddPage({ 
-  onBack, 
-  initialData, 
-  onSave 
-}: { 
-  onBack: () => void; 
-  initialData?: any; 
+export default function AddPage({
+  onBack,
+  initialData,
+  onSave,
+}: {
+  onBack: () => void;
+  initialData?: any;
   onSave: (data: any) => void;
 }) {
   const [form, setForm] = useState({
@@ -87,10 +101,7 @@ export default function AddPage({
               Enter the details of the backlink you want to track
             </p>
 
-            <form
-              className="mt-6 space-y-5"
-              onSubmit={handleSubmit}
-            >
+            <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
               <div>
                 <label className="text-sm font-medium text-black">
                   Backlink
@@ -101,7 +112,8 @@ export default function AddPage({
                   value={form.backlinks}
                   onChange={(e) => {
                     setForm({ ...form, backlinks: e.target.value });
-                    if (errors.backlinks) setErrors({ ...errors, backlinks: "" });
+                    if (errors.backlinks)
+                      setErrors({ ...errors, backlinks: "" });
                   }}
                   placeholder="https://example.com/pages"
                   className={`mt-1 w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:border-black ${
@@ -109,7 +121,9 @@ export default function AddPage({
                   } ${errors.backlinks ? "border-red-400" : ""}`}
                 />
                 {errors.backlinks && (
-                  <p className="mt-1 text-xs text-red-500">{errors.backlinks}</p>
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.backlinks}
+                  </p>
                 )}
               </div>
 
@@ -181,8 +195,8 @@ export default function AddPage({
                   {isSaving
                     ? "Saving..."
                     : initialData
-                    ? "Update Backlink"
-                    : "Add Backlink"}
+                      ? "Update Backlink"
+                      : "Add Backlink"}
                 </button>
 
                 <button

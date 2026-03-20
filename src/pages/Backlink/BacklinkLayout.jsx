@@ -9,7 +9,6 @@ export default function BacklinkLayout() {
   const [view, setView] = useState("monitor");
   const [modifyData, setModifyData] = useState(null);
 
-
   if (view === "add" || view === "modify") {
     return (
       <>
@@ -55,7 +54,7 @@ export default function BacklinkLayout() {
 
   return (
     <>
-      <Toaster position="bottom-right" />
+      <Toaster position="top-right" />
       <Dashboard
         onAdd={() => setView("add")}
         onModify={(row) => {

@@ -267,7 +267,7 @@ export default function ExistingPage() {
               ...page,
               _sourceCollection: collection,
             }));
-            allPages = [...allPages, ...pagesWithCollection];
+            allPages.push(...allPages, ...pagesWithCollection);
           }
         } catch (err) {
           console.error(`Error fetching ${collection}:`, err);
@@ -548,9 +548,6 @@ export default function ExistingPage() {
       }
 
       // setSerpQuestions(allSerpQuestions);
-      setStrapiStatus(
-        `Found ${allSerpQuestions.length} unique questions from ${totalKeywords} keyword(s). Generating FAQs...`,
-      );
       setStrapiStatus("Generating content-based FAQs...");
       const contentFaqData = await fetchJsonOrThrow(
         `${API_BASE}/api/faq/generate-faqs`,
@@ -592,7 +589,8 @@ export default function ExistingPage() {
         setFaqs(normalizedPaaFaqs);
       }
       setStrapiStatus(
-        `FAQ Generation Complete! (${(contentFaqData.faqs || []).length
+        `FAQ Generation Complete! (${
+          (contentFaqData.faqs || []).length
         } content FAQs, ${faqs.length} PAA FAQs)`,
       );
     } catch (err) {
@@ -638,15 +636,15 @@ export default function ExistingPage() {
               value={
                 selectedStrapiCollection
                   ? STRAPI_COLLECTIONS.find(
-                    (col) => col.value === selectedStrapiCollection,
-                  )
+                      (col) => col.value === selectedStrapiCollection,
+                    )
                     ? {
-                      value: selectedStrapiCollection,
-                      label:
-                        STRAPI_COLLECTIONS.find(
-                          (col) => col.value === selectedStrapiCollection,
-                        )?.label || "",
-                    }
+                        value: selectedStrapiCollection,
+                        label:
+                          STRAPI_COLLECTIONS.find(
+                            (col) => col.value === selectedStrapiCollection,
+                          )?.label || "",
+                      }
                     : null
                   : null
               }
@@ -723,32 +721,32 @@ export default function ExistingPage() {
               value={
                 selectedStrapiPage
                   ? (() => {
-                    const page = strapiPages.find(
-                      (p) => p.id.toString() === selectedStrapiPage,
-                    );
-                    if (!page) return null;
-                    const rawTitle =
-                      page.meta_data_title ||
-                      page.title ||
-                      page.slug ||
-                      `Page ${page.id}`;
-                    const cleanTitle = stripHtml(rawTitle);
-                    const maxLen =
-                      window.innerWidth < 640
-                        ? 24
-                        : window.innerWidth < 1024
-                          ? 32
-                          : 38;
-                    const titleShort =
-                      cleanTitle.length > maxLen
-                        ? cleanTitle.slice(0, maxLen) + "…"
-                        : cleanTitle;
-                    return {
-                      value: selectedStrapiPage,
-                      label:
-                        titleShort + (page.slug ? ` (${page.slug})` : ""),
-                    };
-                  })()
+                      const page = strapiPages.find(
+                        (p) => p.id.toString() === selectedStrapiPage,
+                      );
+                      if (!page) return null;
+                      const rawTitle =
+                        page.meta_data_title ||
+                        page.title ||
+                        page.slug ||
+                        `Page ${page.id}`;
+                      const cleanTitle = stripHtml(rawTitle);
+                      const maxLen =
+                        window.innerWidth < 640
+                          ? 24
+                          : window.innerWidth < 1024
+                            ? 32
+                            : 38;
+                      const titleShort =
+                        cleanTitle.length > maxLen
+                          ? cleanTitle.slice(0, maxLen) + "…"
+                          : cleanTitle;
+                      return {
+                        value: selectedStrapiPage,
+                        label:
+                          titleShort + (page.slug ? ` (${page.slug})` : ""),
+                      };
+                    })()
                   : null
               }
               onChange={(option) => {
@@ -850,8 +848,9 @@ export default function ExistingPage() {
 
         {strapiStatus && (
           <p
-            className={`font-semibold mb-4 animate-fade-in ${strapiStatus.startsWith("✅") ? "text-green-600" : "text-gray-600"
-              }`}
+            className={`font-semibold mb-4 animate-fade-in ${
+              strapiStatus.startsWith("✅") ? "text-green-600" : "text-gray-600"
+            }`}
           >
             {strapiStatus}
           </p>
