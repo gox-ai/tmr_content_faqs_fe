@@ -614,13 +614,21 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
                             />
                           </td>
                           <td className="px-4 py-3 text-blue-600">
-                            <a href={row.backlinks} target="_blank">
+                            <a
+                              href={row.backlinks}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
                               {row.backlinks}
                             </a>
                           </td>
                           <td className="px-4 py-3">{row.anchor}</td>
                           <td className="px-4 py-3 text-blue-600">
-                            <a href={row.target} target="_blank">
+                            <a
+                              href={row.target}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
                               {row.target}
                             </a>
                           </td>
