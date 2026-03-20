@@ -267,7 +267,7 @@ export default function ExistingPage() {
               ...page,
               _sourceCollection: collection,
             }));
-            allPages.push(...allPages, ...pagesWithCollection);
+            allPages.push(...pagesWithCollection);
           }
         } catch (err) {
           console.error(`Error fetching ${collection}:`, err);

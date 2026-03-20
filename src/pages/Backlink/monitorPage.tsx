@@ -1,4 +1,3 @@
-"use client";
 import { useEffect, useState, useMemo } from "react";
 import Filter from "../../components/Filter";
 import { useToast } from "../../components/Toast";
@@ -25,8 +24,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onAdd, onModify }: DashboardProps) {
-  // @ts-ignore
-  const BACKEND = `${import.meta.env.REACT_APP_API_URL}/api/backlinks`;
+  const BACKEND = `${import.meta.env.VITE_API_URL}/api/backlinks`;
   const [editingRow, setEditingRow] = useState<BacklinkRow | null>(null);
   const [originalRow, setOriginalRow] = useState<BacklinkRow | null>(null);
   const [isRunning, setIsRunning] = useState<boolean>(false);
