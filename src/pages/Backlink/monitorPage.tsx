@@ -4,6 +4,7 @@ import Filter from "../../components/Filter";
 import { useToast } from "../../components/Toast";
 
 interface BacklinkRow {
+  id: number;
   backlinks: string;
   anchor: string;
   target: string;
@@ -30,7 +31,7 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
   const [originalRow, setOriginalRow] = useState<BacklinkRow | null>(null);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [rows, setRows] = useState<BacklinkRow[]>([]);
-  const [checked, setChecked] = useState<boolean[]>([]);
+  const [checked, setChecked] = useState<Set<number>>(new Set());
   const [filter, setFilter] = useState<string>("all");
   const [todayFilter, setTodayFilter] = useState<"active" | "lost" | null>(
     null,
@@ -46,10 +47,9 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
     let successCount = 0;
     let errorCount = 0;
 
-    for (let i = 0; i < checked.length; i++) {
-      if (!checked[i] || rows[i].skipped) continue;
-
-      const r = rows[i];
+    for (let i = 0; i < updatedRows.length; i++) {
+      const r = updatedRows[i];
+      if (!checked.has(r.id) || r.skipped) continue;
 
       try {
         const res = await fetch(`${BACKEND}/check-backlink`, {
@@ -151,7 +151,7 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
       });
 
       setRows(r);
-      setChecked(new Array(r.length).fill(false));
+      setChecked(new Set());
     } catch (e: any) {
       console.error("Failed to load backlinks:", e.message);
       showToast("error", `Failed to load backlinks: ${e.message}`);
@@ -167,21 +167,19 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
   function statusStyle(status: string) {
     if (status === "active") return "bg-green-100 text-green-700";
     if (status === "lost") return "bg-red-100 text-red-700";
+    if (status === "anchor_match_link_mismatch")
+      return "bg-orange-100 text-orange-700";
     if (status === "unchecked") return "bg-gray-100 text-gray-500";
     return "bg-yellow-100 text-yellow-700";
   }
-
-  const selectedCount = checked.filter(Boolean).length;
-  const allChecked = checked.length > 0 && checked.every(Boolean);
 
   async function handleRestore() {
     const updatedRows = [...rows];
     let errorCount = 0;
 
-    for (let i = 0; i < checked.length; i++) {
-      if (!checked[i]) continue;
-
-      const r = rows[i];
+    for (let i = 0; i < updatedRows.length; i++) {
+      const r = updatedRows[i];
+      if (!checked.has(r.id)) continue;
 
       try {
         const res = await fetch(`${BACKEND}/backlinks`, {
@@ -216,14 +214,21 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
     }
   }
 
-  function toggleAll(v: boolean) {
-    setChecked(checked.map(() => v));
+  function toggleAll(isChecked: boolean) {
+    if (isChecked) {
+      setChecked(new Set(filteredRows.map((row) => row.id)));
+    } else {
+      setChecked(new Set());
+    }
   }
 
-  function toggleOne(i: number, v: boolean) {
-    const c = [...checked];
-    c[i] = v;
-    setChecked(c);
+  function toggleOne(id: number, isChecked: boolean) {
+    setChecked((prevSet) => {
+      const nextSet = new Set(prevSet);
+      if (isChecked) nextSet.add(id);
+      else nextSet.delete(id);
+      return nextSet;
+    });
   }
 
   function getLifeSpan(row: BacklinkRow) {
@@ -319,6 +324,10 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
     });
   }, [rows, filter, extraFilters]);
 
+  const selectedCount = checked.size;
+  const allChecked =
+    filteredRows.length > 0 && filteredRows.every((row) => checked.has(row.id));
+
   function exportData() {
     const headers = [
       "Backlinks",
@@ -365,10 +374,12 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
       {
         <div className="min-h-screen flex flex-col bg-white">
           <div className="flex-1">
-            <div className="mx-auto max-w-8xl px-6 py-8">
-              <h2 className="text-2xl font-semibold">Backlink Tracker</h2>
+            <div className="mx-auto max-w-8xl px-3 py-4 sm:px-6 sm:py-8">
+              <h2 className="text-lg sm:text-2xl font-semibold">
+                Backlink Tracker
+              </h2>
 
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex gap-2">
                   <button
                     className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
@@ -506,9 +517,9 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
                 />
               )}
               {selectedCount > 0 && (
-                <div className="mt-4 flex items-center justify-between rounded-lg border px-4 py-2 bg-white sticky top-0 z-20 shadow-md transition-all duration-300">
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border px-3 py-2 bg-white sticky top-0 z-20 shadow-md">
                   <span className="text-sm">{selectedCount} row selected</span>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 overflow-x-auto pb-1">
                     <button
                       onClick={runSelected}
                       disabled={isRunning}
@@ -534,12 +545,12 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
                       className="rounded-md border px-3 py-1.5 text-sm"
                       disabled={selectedCount !== 1}
                       onClick={() => {
-                        const index = checked.findIndex(Boolean);
-                        if (index === -1) return;
+                        const row = rows.find((item) => checked.has(item.id));
+                        if (!row) return;
 
-                        setOriginalRow(rows[index]);
-                        setEditingRow(rows[index]);
-                        onModify(rows[index]);
+                        setOriginalRow(row);
+                        setEditingRow(row);
+                        onModify(row);
                       }}
                     >
                       Modify
@@ -565,8 +576,8 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
                 </div>
               )}
               {!isLoading && rows.length > 0 && (
-                <div className="mt-6 overflow-hidden rounded-lg border">
-                  <table className="w-full text-sm">
+                <div className="mt-6 overflow-x-auto rounded-lg border">
+                  <table className="min-w-[900px] w-full text-xs sm:text-sm">
                     <thead className="border-b bg-gray-50 text-left text-xs font-semibold uppercase text-gray-600">
                       <tr>
                         <th className="px-4 py-3">
@@ -586,51 +597,53 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredRows.map((r, i) => (
+                      {filteredRows.map((row) => (
                         <tr
-                          key={i}
+                          key={row.id}
                           className={`border-b last:border-0 ${
-                            r.skipped ? "line-through opacity-50" : ""
+                            row.skipped ? "line-through opacity-50" : ""
                           }`}
                         >
                           <td className="px-4 py-3">
                             <input
                               type="checkbox"
-                              checked={checked[i] || false}
-                              onChange={(e) => toggleOne(i, e.target.checked)}
+                              checked={checked.has(row.id)}
+                              onChange={(e) =>
+                                toggleOne(row.id, e.target.checked)
+                              }
                             />
                           </td>
                           <td className="px-4 py-3 text-blue-600">
-                            <a href={r.backlinks} target="_blank">
-                              {r.backlinks}
+                            <a href={row.backlinks} target="_blank">
+                              {row.backlinks}
                             </a>
                           </td>
-                          <td className="px-4 py-3">{r.anchor}</td>
+                          <td className="px-4 py-3">{row.anchor}</td>
                           <td className="px-4 py-3 text-blue-600">
-                            <a href={r.target} target="_blank">
-                              {r.target}
+                            <a href={row.target} target="_blank">
+                              {row.target}
                             </a>
                           </td>
                           <td className="px-4 py-3">
                             <span
                               className={`rounded-full px-2 py-1 text-xs font-medium ${statusStyle(
-                                r.status,
+                                row.status,
                               )}`}
                             >
-                              {r.status?.toUpperCase()}
+                              {row.status?.toUpperCase()}
                             </span>
                           </td>
                           <td className="px-4 py-3">
                             <span className="inline-flex whitespace-nowrap rounded-full px-2 py-1 text-sm text-black">
-                              {r.link_type ||
-                                (r.dofollow ? "dofollow" : "nofollow")}
+                              {row.link_type ||
+                                (row.dofollow ? "dofollow" : "nofollow")}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-gray-600">
-                            {getLifeSpan(r)}
+                            {getLifeSpan(row)}
                           </td>
                           <td className="px-4 py-3 text-gray-600">
-                            {r.last_checked || "-"}
+                            {row.last_checked || "-"}
                           </td>
                         </tr>
                       ))}
