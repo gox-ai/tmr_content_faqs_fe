@@ -213,9 +213,6 @@ export default function AddPage({
         </div>
       </main>
 
-      <footer className="bg-black py-3 text-center text-xs text-gray-400">
-        by <span className="text-orange-500">Two Minute Reports</span>
-      </footer>
     </div>
   );
 }

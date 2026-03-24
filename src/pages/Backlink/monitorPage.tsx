@@ -378,7 +378,7 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
               </h2>
 
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
                     onClick={onAdd}
@@ -574,24 +574,24 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
                 </div>
               )}
               {!isLoading && rows.length > 0 && (
-                <div className="mt-6 overflow-x-auto rounded-lg border">
-                  <table className="min-w-[900px] w-full text-xs sm:text-sm">
+                <div className="mt-6 rounded-lg border">
+                  <table className="w-full table-fixed text-xs">
                     <thead className="border-b bg-gray-50 text-left text-xs font-semibold uppercase text-gray-600">
                       <tr>
-                        <th className="px-4 py-3">
+                        <th className="w-9 pl-3 pr-1 py-3">
                           <input
                             type="checkbox"
                             checked={allChecked}
                             onChange={(e) => toggleAll(e.target.checked)}
                           />
                         </th>
-                        <th className="px-4 py-3">Backlinks</th>
-                        <th className="px-4 py-3">Anchor</th>
-                        <th className="px-4 py-3">Target URL</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3">Link Type</th>
-                        <th className="px-4 py-3">Life Span</th>
-                        <th className="px-4 py-3">Last Checked</th>
+                        <th className="w-[35%] px-2 py-3">Backlinks</th>
+                        <th className="w-[28%] px-2 py-3">Target URL</th>
+                        <th className="w-[18%] px-2 py-3">Status</th>
+                        <th className="hidden sm:table-cell w-[12%] px-2 py-3">Anchor</th>
+                        <th className="hidden md:table-cell w-[10%] px-2 py-3">Link Type</th>
+                        <th className="hidden md:table-cell w-[9%] px-2 py-3">Life Span</th>
+                        <th className="hidden sm:table-cell w-[14%] px-2 py-3">Last Checked</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -602,7 +602,7 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
                             row.skipped ? "line-through opacity-50" : ""
                           }`}
                         >
-                          <td className="px-4 py-3">
+                          <td className="pl-3 pr-1 py-3">
                             <input
                               type="checkbox"
                               checked={checked.has(row.id)}
@@ -611,26 +611,29 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
                               }
                             />
                           </td>
-                          <td className="px-4 py-3 text-blue-600">
+                          <td className="px-2 py-3 text-blue-600 max-w-0">
                             <a
                               href={row.backlinks}
                               target="_blank"
                               rel="noreferrer"
+                              title={row.backlinks}
+                              className="block truncate"
                             >
                               {row.backlinks}
                             </a>
                           </td>
-                          <td className="px-4 py-3">{row.anchor}</td>
-                          <td className="px-4 py-3 text-blue-600">
+                          <td className="px-2 py-3 text-blue-600 max-w-0">
                             <a
                               href={row.target}
                               target="_blank"
                               rel="noreferrer"
+                              title={row.target}
+                              className="block truncate"
                             >
                               {row.target}
                             </a>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-2 py-3">
                             <span
                               className={`rounded-full px-2 py-1 text-xs font-medium ${statusStyle(
                                 row.status,
@@ -639,17 +642,18 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
                               {row.status?.toUpperCase()}
                             </span>
                           </td>
-                          <td className="px-4 py-3">
-                            <span className="inline-flex whitespace-nowrap rounded-full px-2 py-1 text-sm text-black">
-                              {row.link_type ||
-                                (row.dofollow ? "dofollow" : "nofollow")}
-                            </span>
+                          <td className="hidden sm:table-cell px-2 py-3 max-w-0">
+                            <span className="block truncate" title={row.anchor}>{row.anchor}</span>
                           </td>
-                          <td className="px-4 py-3 text-gray-600">
+                          <td className="hidden md:table-cell px-2 py-3 whitespace-nowrap">
+                            {row.link_type ||
+                              (row.dofollow ? "dofollow" : "nofollow")}
+                          </td>
+                          <td className="hidden md:table-cell px-2 py-3 text-gray-600 whitespace-nowrap">
                             {getLifeSpan(row)}
                           </td>
-                          <td className="px-4 py-3 text-gray-600">
-                            {row.last_checked || "-"}
+                          <td className="hidden sm:table-cell px-2 py-3 text-gray-600 whitespace-nowrap">
+                            {row.last_checked ? row.last_checked.split("T")[0] : "-"}
                           </td>
                         </tr>
                       ))}
@@ -659,9 +663,6 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
               )}
             </div>
           </div>
-          <footer className="bg-black py-3 text-center text-xs text-gray-400">
-            by <span className="text-orange-500">Two Minute Reports</span>
-          </footer>
         </div>
       }
     </>

@@ -3,7 +3,7 @@ import toast, { Toaster } from "react-hot-toast";
 import Dashboard from "./monitorPage";
 import AddPage from "./addPage";
 
-const BACKEND = `${import.meta.env.REACT_APP_API_URL}/api/backlinks`;
+const BACKEND = `${import.meta.env.VITE_API_URL}/api/backlinks`;
 
 export default function BacklinkLayout() {
   const [view, setView] = useState("monitor");

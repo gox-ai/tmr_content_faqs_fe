@@ -6,7 +6,7 @@ import { normalizeFaqs } from "./ai-purifier";
 import Select from "react-select";
 import { fetchJsonOrThrow } from "../../utils/api";
 
-const API_BASE = import.meta.env.REACT_APP_API_URL;
+const API_BASE = import.meta.env.VITE_API_URL;
 
 const STRAPI_COLLECTIONS = [
   { label: "Solution Pages", value: "solution-pages" },

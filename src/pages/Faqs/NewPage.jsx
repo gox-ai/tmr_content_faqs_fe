@@ -24,7 +24,7 @@ export default function App() {
   const [copiedContentIndex, setCopiedContentIndex] = useState(null);
   const [rephrasedFaqs, setRephrasedFaqs] = useState([]);
 
-  const API_BASE = import.meta.env.REACT_APP_API_URL;
+  const API_BASE = import.meta.env.VITE_API_URL;
 
   const fetchSerpQuestions = async () => {
     if (!keyword.trim()) {
@@ -208,14 +208,15 @@ export default function App() {
 
             {strapiStatus && (
               <div
-                className={`mt-4 font-semibold ${strapiStatus.startsWith("✅")
+                className={`mt-4 font-semibold ${
+                  strapiStatus.startsWith("✅")
                     ? "text-green-600"
                     : strapiStatus.startsWith("⚠️")
                       ? "text-amber-600"
                       : strapiStatus.startsWith("❌")
                         ? "text-red-600"
                         : "text-gray-600"
-                  }`}
+                }`}
               >
                 {strapiStatus}
               </div>
