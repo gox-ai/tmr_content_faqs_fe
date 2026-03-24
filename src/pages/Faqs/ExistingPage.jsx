@@ -154,7 +154,7 @@ export default function ExistingPage() {
   const fetchKeywordsFromStrapi = async () => {
     try {
       setStrapiStatus("⏳ Fetching keywords from Strapi...");
-      const data = await fetchJsonOrThrow(`${API_BASE}/strapi/faq`);
+      const data = await fetchJsonOrThrow(`${API_BASE}/api/faq/get-keywords`);
 
       if (data.result) {
         setKeywordsData(data.result);
