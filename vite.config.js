@@ -11,9 +11,7 @@ export default defineConfig(({ mode }) => {
       allowedHosts: ["tools.twominutereports.com", "twominutereports.com"],
     },
     define: {
-      "import.meta.env.REACT_APP_API_URL": JSON.stringify(
-        env.REACT_APP_API_URL || ""
-      ),
+      "import.meta.env.VITE_API_URL": JSON.stringify(env.VITE_API_URL || ""),
     },
     envPrefix: ["VITE_", "REACT_APP_"],
   };

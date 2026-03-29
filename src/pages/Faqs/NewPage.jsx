@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import LoadingSpinner from "./LoadingSpinner";
 import FAQSection from "./FAQCard";
 import { normalizeFaqs } from "./ai-purifier";
-import { fetchJsonOrThrow } from "../utils/api";
+import { fetchJsonOrThrow } from "../../utils/api";
 const cleanKeywords = (keywords) => {
   if (!Array.isArray(keywords)) return [];
   return keywords
@@ -24,7 +24,7 @@ export default function App() {
   const [copiedContentIndex, setCopiedContentIndex] = useState(null);
   const [rephrasedFaqs, setRephrasedFaqs] = useState([]);
 
-  const API_BASE = import.meta.env.REACT_APP_API_URL;
+  const API_BASE = import.meta.env.VITE_API_URL;
 
   const fetchSerpQuestions = async () => {
     if (!keyword.trim()) {
@@ -37,12 +37,12 @@ export default function App() {
 
     try {
       const data = await fetchJsonOrThrow(
-        `${API_BASE}/api/fetch-serp-questions`,
+        `${API_BASE}/api/faq/fetch-serp-questions`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ keyword }),
-        }
+        },
       );
 
       if (!data.questions?.length) {
@@ -68,7 +68,7 @@ export default function App() {
       setFaqs([]);
       setAutoShowFaqs(false);
 
-      const data = await fetchJsonOrThrow(`${API_BASE}/api/generate-faqs`, {
+      const data = await fetchJsonOrThrow(`${API_BASE}/api/faq/generate-faqs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ keyword, content, serpQuestions: questions }),
@@ -90,14 +90,14 @@ export default function App() {
     try {
       if (!content.trim()) {
         throw new Error(
-          "Please provide content to generate content-based FAQs."
+          "Please provide content to generate content-based FAQs.",
         );
       }
 
       const keywordsToUse = cleanKeywords(strapiKeywords);
       const mainKeyword = keyword || keywordsToUse[0];
 
-      const data = await fetchJsonOrThrow(`${API_BASE}/api/generate-faqs`, {
+      const data = await fetchJsonOrThrow(`${API_BASE}/api/faq/generate-faqs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -114,12 +114,12 @@ export default function App() {
 
       try {
         const rephrased = await fetchJsonOrThrow(
-          `${API_BASE}/api/rephrase-faqs`,
+          `${API_BASE}/api/faq/rephrase-faqs`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ faqs: data.faqs, content }),
-          }
+          },
         );
 
         setRephrasedFaqs(rephrased);
@@ -212,10 +212,10 @@ export default function App() {
                   strapiStatus.startsWith("✅")
                     ? "text-green-600"
                     : strapiStatus.startsWith("⚠️")
-                    ? "text-amber-600"
-                    : strapiStatus.startsWith("❌")
-                    ? "text-red-600"
-                    : "text-gray-600"
+                      ? "text-amber-600"
+                      : strapiStatus.startsWith("❌")
+                        ? "text-red-600"
+                        : "text-gray-600"
                 }`}
               >
                 {strapiStatus}

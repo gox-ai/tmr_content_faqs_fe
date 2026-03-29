@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import LoadingSpinner from "./LoadingSpinner";
-import { getCachedData, setCachedData } from "../utils/cacheUtils";
+import { getCachedData, setCachedData } from "../../utils/cacheUtils";
 import FAQSection from "./FAQCard";
 import { normalizeFaqs } from "./ai-purifier";
 import Select from "react-select";
-import { fetchJsonOrThrow } from "../utils/api";
+import { fetchJsonOrThrow } from "../../utils/api";
 
-const API_BASE = import.meta.env.REACT_APP_API_URL;
+const API_BASE = import.meta.env.VITE_API_URL;
 
 const STRAPI_COLLECTIONS = [
   { label: "Solution Pages", value: "solution-pages" },
@@ -133,7 +133,7 @@ export default function ExistingPage() {
           !data ||
           Object.keys(data).length === 0 ||
           Object.values(data).every(
-            (arr) => Array.isArray(arr) && arr.length === 0
+            (arr) => Array.isArray(arr) && arr.length === 0,
           );
 
         if (isEmpty) {
@@ -154,11 +154,12 @@ export default function ExistingPage() {
   const fetchKeywordsFromStrapi = async () => {
     try {
       setStrapiStatus("⏳ Fetching keywords from Strapi...");
-      const data = await fetchJsonOrThrow(`${API_BASE}/strapi/faq`);
+      const data = await fetchJsonOrThrow(`${API_BASE}/api/faq/get-keywords`);
 
-      if (data.result) {
-        setKeywordsData(data.result);
-        setCachedData("keywords_json", data.result);
+      const keywords = data.result ?? data;
+      if (keywords) {
+        setKeywordsData(keywords);
+        setCachedData("keywords_json", keywords);
         setStrapiStatus("✅ Keywords loaded from Strapi");
       } else {
         console.error("⚠️ Failed to fetch keywords from Strapi");
@@ -187,12 +188,12 @@ export default function ExistingPage() {
       // If it's feature-pages, fetch normally
       if (selectedStrapiCollection === "feature-pages") {
         const data = await fetchJsonOrThrow(
-          `${API_BASE}/api/fetch-strapi-content`,
+          `${API_BASE}/api/faq/fetch-strapi-content`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ collection: "feature-pages" }),
-          }
+          },
         );
 
         if (data.pages) {
@@ -255,19 +256,19 @@ export default function ExistingPage() {
       for (const collection of targetCollections) {
         try {
           const data = await fetchJsonOrThrow(
-            `${API_BASE}/api/fetch-strapi-content`,
+            `${API_BASE}/api/faq/fetch-strapi-content`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ collection }),
-            }
+            },
           );
           if (data.pages) {
             const pagesWithCollection = data.pages.map((page) => ({
               ...page,
               _sourceCollection: collection,
             }));
-            allPages = [...allPages, ...pagesWithCollection];
+            allPages.push(...pagesWithCollection);
           }
         } catch (err) {
           console.error(`Error fetching ${collection}:`, err);
@@ -313,7 +314,7 @@ export default function ExistingPage() {
         selectedPage?._sourceCollection || selectedStrapiCollection;
 
       const data = await fetchJsonOrThrow(
-        `${API_BASE}/api/fetch-strapi-content`,
+        `${API_BASE}/api/faq/fetch-strapi-content`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -321,7 +322,7 @@ export default function ExistingPage() {
             collection: actualCollection,
             pageId: pageId,
           }),
-        }
+        },
       );
 
       if (data.content) {
@@ -334,7 +335,7 @@ export default function ExistingPage() {
           try {
             setStrapiStatus("Matching keywords from keywords.json...");
             const keywordData = await fetchJsonOrThrow(
-              `${API_BASE}/api/match-keyword`,
+              `${API_BASE}/api/faq/match-keyword`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -343,7 +344,7 @@ export default function ExistingPage() {
                   slug: data.slug,
                   category: categoryName,
                 }),
-              }
+              },
             );
 
             if (keywordData.keywords && keywordData.keywords.length > 0) {
@@ -368,7 +369,7 @@ export default function ExistingPage() {
                 keywordData.message ||
                 "No keywords found for this page in keywords.json. Please add this page to keywords.json or fetch keywords from Strapi.";
               setStrapiStatus(
-                `⚠️ ${keywordData.message || "Page not found in keywords.json"}`
+                `⚠️ ${keywordData.message || "Page not found in keywords.json"}`,
               );
               setMainKeyword("");
               setAllKeywords([]);
@@ -378,7 +379,7 @@ export default function ExistingPage() {
               // Don't cache when there's an error
             } else {
               setStrapiStatus(
-                "Loaded content (no matching keyword found in keywords.json)"
+                "Loaded content (no matching keyword found in keywords.json)",
               );
               setMainKeyword("");
               setAllKeywords([]);
@@ -389,7 +390,7 @@ export default function ExistingPage() {
           }
         } else {
           setStrapiStatus(
-            "Loaded content (no URL/slug available for keyword matching)"
+            "Loaded content (no URL/slug available for keyword matching)",
           );
         }
       } else {
@@ -409,7 +410,7 @@ export default function ExistingPage() {
 
   const rephraseFaqs = async (faqs) => {
     try {
-      const data = await fetchJsonOrThrow(`${API_BASE}/api/rephrase-faqs`, {
+      const data = await fetchJsonOrThrow(`${API_BASE}/api/faq/rephrase-faqs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ faqs, content, keywordsData }),
@@ -439,7 +440,7 @@ export default function ExistingPage() {
     }
     if (!mainKeyword && allKeywords.length === 0) {
       setError(
-        "No keywords found. Please select a page with keywords in keywords.json."
+        "No keywords found. Please select a page with keywords in keywords.json.",
       );
       return;
     }
@@ -463,17 +464,17 @@ export default function ExistingPage() {
         const kw = keywordsToUse[i];
         if (!kw || kw.trim().length === 0) continue;
         setStrapiStatus(
-          `[${i + 1}/${totalKeywords}] Fetching questions for: "${kw}"...`
+          `[${i + 1}/${totalKeywords}] Fetching questions for: "${kw}"...`,
         );
 
         try {
           const serpData = await fetchJsonOrThrow(
-            `${API_BASE}/api/fetch-serp-questions`,
+            `${API_BASE}/api/faq/fetch-serp-questions`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ keyword: kw.trim() }),
-            }
+            },
           );
 
           if (serpData.questions && serpData.questions.length > 0) {
@@ -519,12 +520,12 @@ export default function ExistingPage() {
       // Fallback: Generate questions using AI if no SERP questions found
       if (allSerpQuestions.length === 0) {
         setStrapiStatus(
-          "No Google questions found. Generating questions using AI..."
+          "No Google questions found. Generating questions using AI...",
         );
 
         try {
           const fallbackData = await fetchJsonOrThrow(
-            `${API_BASE}/api/generate-fallback-questions`,
+            `${API_BASE}/api/faq/generate-fallback-questions`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -532,14 +533,14 @@ export default function ExistingPage() {
                 keyword: mainKeyword || keywordsToUse[0],
                 content: content.substring(0, 3000), // Limit content length
               }),
-            }
+            },
           );
 
           if (fallbackData.questions && fallbackData.questions.length > 0) {
             allSerpQuestions = fallbackData.questions;
 
             setStrapiStatus(
-              `Generated ${allSerpQuestions.length} AI-generated questions. Creating FAQs...`
+              `Generated ${allSerpQuestions.length} AI-generated questions. Creating FAQs...`,
             );
           }
         } catch (fallbackErr) {
@@ -548,12 +549,9 @@ export default function ExistingPage() {
       }
 
       // setSerpQuestions(allSerpQuestions);
-      setStrapiStatus(
-        `Found ${allSerpQuestions.length} unique questions from ${totalKeywords} keyword(s). Generating FAQs...`
-      );
       setStrapiStatus("Generating content-based FAQs...");
       const contentFaqData = await fetchJsonOrThrow(
-        `${API_BASE}/api/generate-faqs`,
+        `${API_BASE}/api/faq/generate-faqs`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -563,7 +561,7 @@ export default function ExistingPage() {
             serpQuestions: [],
             keywordsData,
           }),
-        }
+        },
       );
 
       // const normalizedContentFaqs = normalizeFaqs(contentFaqData.faqs || []);
@@ -576,7 +574,7 @@ export default function ExistingPage() {
       if (allSerpQuestions.length > 0) {
         setStrapiStatus("Generating PAA + Google FAQs from questions...");
         const paaData = await fetchJsonOrThrow(
-          `${API_BASE}/api/generate-faqs`,
+          `${API_BASE}/api/faq/generate-faqs`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -586,7 +584,7 @@ export default function ExistingPage() {
               serpQuestions: allSerpQuestions,
               keywordsData,
             }),
-          }
+          },
         );
         const normalizedPaaFaqs = normalizeFaqs(paaData.faqs || []);
         setFaqs(normalizedPaaFaqs);
@@ -594,7 +592,7 @@ export default function ExistingPage() {
       setStrapiStatus(
         `FAQ Generation Complete! (${
           (contentFaqData.faqs || []).length
-        } content FAQs, ${faqs.length} PAA FAQs)`
+        } content FAQs, ${faqs.length} PAA FAQs)`,
       );
     } catch (err) {
       console.error("FAQ Generation error:", err);
@@ -639,13 +637,13 @@ export default function ExistingPage() {
               value={
                 selectedStrapiCollection
                   ? STRAPI_COLLECTIONS.find(
-                      (col) => col.value === selectedStrapiCollection
+                      (col) => col.value === selectedStrapiCollection,
                     )
                     ? {
                         value: selectedStrapiCollection,
                         label:
                           STRAPI_COLLECTIONS.find(
-                            (col) => col.value === selectedStrapiCollection
+                            (col) => col.value === selectedStrapiCollection,
                           )?.label || "",
                       }
                     : null
@@ -710,8 +708,8 @@ export default function ExistingPage() {
                   window.innerWidth < 640
                     ? 24
                     : window.innerWidth < 1024
-                    ? 32
-                    : 38;
+                      ? 32
+                      : 38;
                 const titleShort =
                   cleanTitle.length > maxLen
                     ? cleanTitle.slice(0, maxLen) + "…"
@@ -725,7 +723,7 @@ export default function ExistingPage() {
                 selectedStrapiPage
                   ? (() => {
                       const page = strapiPages.find(
-                        (p) => p.id.toString() === selectedStrapiPage
+                        (p) => p.id.toString() === selectedStrapiPage,
                       );
                       if (!page) return null;
                       const rawTitle =
@@ -738,8 +736,8 @@ export default function ExistingPage() {
                         window.innerWidth < 640
                           ? 24
                           : window.innerWidth < 1024
-                          ? 32
-                          : 38;
+                            ? 32
+                            : 38;
                       const titleShort =
                         cleanTitle.length > maxLen
                           ? cleanTitle.slice(0, maxLen) + "…"
