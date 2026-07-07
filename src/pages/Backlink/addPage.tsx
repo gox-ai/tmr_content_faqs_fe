@@ -39,6 +39,14 @@ export default function AddPage({
     published_at: initialData?.published_at
       ? initialData.published_at.split("T")[0]
       : "",
+    link_category: initialData?.link_category || "",
+    organization: initialData?.organization || "",
+    contact_name: initialData?.contact_name || "",
+    email: initialData?.email || "",
+    linkedin_url: initialData?.linkedin_url || "",
+    contacted_date: initialData?.contacted_date
+      ? initialData.contacted_date.split("T")[0]
+      : "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -58,6 +66,10 @@ export default function AddPage({
 
     if (!form.anchor.trim()) {
       newErrors.anchor = "Anchor text is required";
+    }
+
+    if (!form.link_category) {
+      newErrors.link_category = "Type is required";
     }
 
     if (!form.target.trim()) {
@@ -177,6 +189,98 @@ export default function AddPage({
                   value={form.published_at}
                   onChange={(e) =>
                     setForm({ ...form, published_at: e.target.value })
+                  }
+                  className="mt-1 w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:border-black"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-black">Type</label>
+                <p className="mt-1 text-xs text-gray-500">
+                  Need to specify which domain is yours to determine link type
+                </p>
+                <select
+                  value={form.link_category}
+                  onChange={(e) =>
+                    setForm({ ...form, link_category: e.target.value })
+                  }
+                  className="mt-1 w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:border-black"
+                >
+                  <option value="">Select type</option>
+                  <option value="established">Established (backlink to external site)</option>
+                  <option value="given">Given (link from your site)</option>
+                </select>
+                {errors.link_category && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {errors.link_category}
+                  </p>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-bold text-black">Contact Details (Optional)</h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  Enter contact info to track outreach. Organization can be auto-derived from domain.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-black">Organization</label>
+                <input
+                  value={form.organization}
+                  onChange={(e) =>
+                    setForm({ ...form, organization: e.target.value })
+                  }
+                  placeholder="Company name (leave empty to auto-derive)"
+                  className="mt-1 w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:border-black"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-black">Contact Name</label>
+                <input
+                  value={form.contact_name}
+                  onChange={(e) =>
+                    setForm({ ...form, contact_name: e.target.value })
+                  }
+                  placeholder="John Doe"
+                  className="mt-1 w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:border-black"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-black">Email</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) =>
+                    setForm({ ...form, email: e.target.value })
+                  }
+                  placeholder="john@example.com"
+                  className="mt-1 w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:border-black"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-black">LinkedIn URL</label>
+                <input
+                  type="url"
+                  value={form.linkedin_url}
+                  onChange={(e) =>
+                    setForm({ ...form, linkedin_url: e.target.value })
+                  }
+                  placeholder="https://linkedin.com/in/johndoe"
+                  className="mt-1 w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:border-black"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-black">Contacted Date</label>
+                <input
+                  type="date"
+                  value={form.contacted_date}
+                  onChange={(e) =>
+                    setForm({ ...form, contacted_date: e.target.value })
                   }
                   className="mt-1 w-full rounded-lg border px-4 py-2.5 text-sm outline-none focus:border-black"
                 />

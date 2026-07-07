@@ -11,6 +11,8 @@ export default function Filter({ page, onFilterChange, filters }: FilterProps) {
   const [status, setStatus] = useState(filters.status || "");
   const [lifeSpan, setLifeSpan] = useState(filters.lifeSpan || "");
   const [lastChecked, setLastChecked] = useState(filters.lastChecked || "");
+  const [linkCategory, setLinkCategory] = useState(filters.linkCategory || "");
+  const [publishedDate, setPublishedDate] = useState(filters.publishedDate || "");
 
   function update(key: string, val: string, setter: (v: string) => void) {
     setter(val);
@@ -67,6 +69,30 @@ export default function Filter({ page, onFilterChange, filters }: FilterProps) {
         <option value="never">Never checked</option>
       </select>
 
+      <label className="text-xs font-medium text-gray-600">Type</label>
+      <select
+        value={linkCategory}
+        onChange={(e) => update("linkCategory", e.target.value, setLinkCategory)}
+        className="rounded border px-2 py-1 text-sm"
+      >
+        <option value="">All</option>
+        <option value="established">Established</option>
+        <option value="given">Given</option>
+      </select>
+
+      <label className="text-xs font-medium text-gray-600">Published</label>
+      <select
+        value={publishedDate}
+        onChange={(e) => update("publishedDate", e.target.value, setPublishedDate)}
+        className="rounded border px-2 py-1 text-sm"
+      >
+        <option value="">All</option>
+        <option value="today">Today</option>
+        <option value="7">Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="90">Last 90 days</option>
+      </select>
+
       {Object.values(filters).some(Boolean) && (
         <button
           onClick={() => {
@@ -74,6 +100,8 @@ export default function Filter({ page, onFilterChange, filters }: FilterProps) {
             setStatus("");
             setLifeSpan("");
             setLastChecked("");
+            setLinkCategory("");
+            setPublishedDate("");
             onFilterChange({});
           }}
           className="ml-auto text-xs text-red-500 hover:underline"

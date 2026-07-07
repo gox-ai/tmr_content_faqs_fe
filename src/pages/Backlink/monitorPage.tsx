@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, type ReactNode } from "react";
 import Filter from "../../components/Filter";
 import { useToast } from "../../components/Toast";
 
@@ -16,14 +16,155 @@ interface BacklinkRow {
   published_at?: string;
   created_at?: string;
   skipped?: number;
+  organization?: string;
+  contact_name?: string;
+  email?: string;
+  linkedin_url?: string;
+  contacted_date?: string;
+  link_category?: string;
+}
+
+const OWN_DOMAIN = "twominutereports.com";
+
+function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function getLinkCategory(row: BacklinkRow): "given" | "established" {
+  if (row.link_category === "given" || row.link_category === "established")
+    return row.link_category;
+  return extractDomain(row.backlinks) === OWN_DOMAIN &&
+    extractDomain(row.target) !== OWN_DOMAIN
+    ? "given"
+    : "established";
+}
+
+function getPartnerDomain(row: BacklinkRow): string {
+  const backlinkDomain = extractDomain(row.backlinks);
+  const targetDomain = extractDomain(row.target);
+  if (backlinkDomain && backlinkDomain !== OWN_DOMAIN) return backlinkDomain;
+  if (targetDomain && targetDomain !== OWN_DOMAIN) return targetDomain;
+  return backlinkDomain || targetDomain || "unknown";
+}
+
+interface BacklinkGroup {
+  key: string;
+  label: string;
+  isOrganization: boolean;
+  rows: BacklinkRow[];
+  domains: Set<string>;
+  activeCount: number;
+  lostCount: number;
+  givenCount: number;
+  establishedCount: number;
+  newestAt: number;
 }
 
 interface DashboardProps {
   onAdd: () => void;
   onModify: (row: BacklinkRow) => void;
+  refreshSignal?: number;
 }
 
-export default function Dashboard({ onAdd, onModify }: DashboardProps) {
+interface FragmentGroupProps {
+  group: BacklinkGroup;
+  isExpanded: boolean;
+  groupChecked: boolean;
+  onToggleExpanded: () => void;
+  onToggleChecked: (isChecked: boolean) => void;
+  renderRow: (row: BacklinkRow) => ReactNode;
+}
+
+function FragmentGroup({
+  group,
+  isExpanded,
+  groupChecked,
+  onToggleExpanded,
+  onToggleChecked,
+  renderRow,
+}: FragmentGroupProps) {
+  return (
+    <>
+      <tr
+        className="border-b bg-gray-50/70 cursor-pointer hover:bg-gray-100"
+        onClick={onToggleExpanded}
+      >
+        <td className="pl-3 pr-1 py-3" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={groupChecked}
+            onChange={(e) => onToggleChecked(e.target.checked)}
+          />
+        </td>
+        <td colSpan={8} className="px-2 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}
+            >
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+            <span className="font-semibold text-sm text-gray-800">
+              {group.label}
+            </span>
+            {(group.isOrganization || group.domains.size > 1) && (
+              <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                {group.domains.size} site{group.domains.size !== 1 ? "s" : ""}
+              </span>
+            )}
+            <span className="text-xs text-gray-500">
+              {group.rows.length} link{group.rows.length !== 1 ? "s" : ""}
+            </span>
+            {group.givenCount > 0 && (
+              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                {group.givenCount} given
+              </span>
+            )}
+            {group.establishedCount > 0 && (
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                {group.establishedCount} established
+              </span>
+            )}
+            {group.activeCount > 0 && (
+              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                {group.activeCount} active
+              </span>
+            )}
+            {group.lostCount > 0 && (
+              <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                {group.lostCount} lost
+              </span>
+            )}
+            {group.givenCount > 0 && group.establishedCount > 0 && (
+              <span className="ml-auto rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                Exchange
+              </span>
+            )}
+          </div>
+        </td>
+      </tr>
+      {isExpanded && group.rows.map((row) => renderRow(row))}
+    </>
+  );
+}
+
+export default function Dashboard({
+  onAdd,
+  onModify,
+  refreshSignal = 0,
+}: DashboardProps) {
   const BACKEND = `${import.meta.env.VITE_API_URL}/api/backlinks`;
   const [editingRow, setEditingRow] = useState<BacklinkRow | null>(null);
   const [originalRow, setOriginalRow] = useState<BacklinkRow | null>(null);
@@ -37,6 +178,10 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [extraFilters, setExtraFilters] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [groupMode, setGroupMode] = useState<"none" | "site" | "email">(
+    "site",
+  );
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const { showToast } = useToast();
 
   async function runSelected() {
@@ -148,6 +293,12 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
         return row;
       });
 
+      r.sort(
+        (a: BacklinkRow, b: BacklinkRow) =>
+          new Date(b.created_at || 0).getTime() -
+            new Date(a.created_at || 0).getTime() || b.id - a.id,
+      );
+
       setRows(r);
       setChecked(new Set());
     } catch (e: any) {
@@ -160,7 +311,7 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
 
   useEffect(() => {
     refreshData();
-  }, []);
+  }, [refreshSignal]);
 
   function statusStyle(status: string) {
     if (status === "active") return "bg-green-100 text-green-700";
@@ -290,6 +441,25 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
           continue;
         }
 
+        if (key === "linkCategory") {
+          if (getLinkCategory(r) !== value) return false;
+          continue;
+        }
+
+        if (key === "publishedDate") {
+          if (!r.published_at) return false;
+          const diffDays = Math.floor(
+            (Date.now() - new Date(r.published_at).getTime()) /
+              (1000 * 3600 * 24),
+          );
+          if (value === "today") {
+            if (diffDays > 0) return false;
+          } else if (diffDays > Number(value)) {
+            return false;
+          }
+          continue;
+        }
+
         if (key === "lastChecked") {
           if (value === "never") {
             if (r.last_checked) return false;
@@ -321,6 +491,164 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
       return true;
     });
   }, [rows, filter, extraFilters]);
+
+  const groupedRows = useMemo<BacklinkGroup[]>(() => {
+    const groups = new Map<string, BacklinkGroup>();
+
+    for (const row of filteredRows) {
+      const organization = row.organization?.trim();
+      const email = row.email?.trim();
+
+      let key: string;
+      let label: string;
+      let isOrganization: boolean;
+
+      if (groupMode === "email" && email) {
+        key = `email:${email.toLowerCase()}`;
+        const name = row.contact_name?.trim();
+        label = name ? `${name} · ${email}` : email;
+        isOrganization = true;
+      } else if (organization) {
+        key = `org:${organization.toLowerCase()}`;
+        label = organization;
+        isOrganization = true;
+      } else {
+        key = `site:${getPartnerDomain(row)}`;
+        label = getPartnerDomain(row);
+        isOrganization = false;
+      }
+
+      let group = groups.get(key);
+      if (!group) {
+        group = {
+          key,
+          label,
+          isOrganization,
+          rows: [],
+          domains: new Set(),
+          activeCount: 0,
+          lostCount: 0,
+          givenCount: 0,
+          establishedCount: 0,
+          newestAt: 0,
+        };
+        groups.set(key, group);
+      }
+
+      group.rows.push(row);
+      group.newestAt = Math.max(
+        group.newestAt,
+        new Date(row.created_at || 0).getTime(),
+      );
+      group.domains.add(getPartnerDomain(row));
+      if (row.status === "active") group.activeCount++;
+      if (row.status === "lost") group.lostCount++;
+      if (getLinkCategory(row) === "given") group.givenCount++;
+      else group.establishedCount++;
+    }
+
+    return [...groups.values()].sort(
+      (a, b) =>
+        b.newestAt - a.newestAt ||
+        b.rows.length - a.rows.length ||
+        a.label.localeCompare(b.label),
+    );
+  }, [filteredRows, groupMode]);
+
+  function toggleGroupExpanded(key: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function toggleGroupChecked(group: BacklinkGroup, isChecked: boolean) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      for (const row of group.rows) {
+        if (isChecked) next.add(row.id);
+        else next.delete(row.id);
+      }
+      return next;
+    });
+  }
+
+  function renderBacklinkRow(row: BacklinkRow) {
+    return (
+      <tr
+        key={row.id}
+        className={`border-b last:border-0 ${
+          row.skipped ? "line-through opacity-50" : ""
+        }`}
+      >
+        <td className="pl-3 pr-1 py-3">
+          <input
+            type="checkbox"
+            checked={checked.has(row.id)}
+            onChange={(e) => toggleOne(row.id, e.target.checked)}
+          />
+        </td>
+        <td className="px-2 py-3 text-gray-600 whitespace-nowrap">
+          {row.published_at ? row.published_at.split("T")[0] : "-"}
+        </td>
+        <td className="px-2 py-3">
+          <span
+            className={`rounded-full px-2 py-1 text-xs font-medium ${
+              getLinkCategory(row) === "given"
+                ? "bg-purple-100 text-purple-700"
+                : "bg-blue-100 text-blue-700"
+            }`}
+          >
+            {getLinkCategory(row) === "given" ? "Given" : "Established"}
+          </span>
+        </td>
+        <td className="px-2 py-3 text-blue-600 max-w-0">
+          <a
+            href={row.backlinks}
+            target="_blank"
+            rel="noreferrer"
+            title={row.backlinks}
+            className="block truncate"
+          >
+            {row.backlinks}
+          </a>
+        </td>
+        <td className="px-2 py-3 text-blue-600 max-w-0">
+          <a
+            href={row.target}
+            target="_blank"
+            rel="noreferrer"
+            title={row.target}
+            className="block truncate"
+          >
+            {row.target}
+          </a>
+        </td>
+        <td className="px-2 py-3">
+          <span
+            className={`rounded-full px-2 py-1 text-xs font-medium ${statusStyle(
+              row.status,
+            )}`}
+          >
+            {row.status?.toUpperCase()}
+          </span>
+        </td>
+        <td className="hidden sm:table-cell px-2 py-3 max-w-0">
+          <span className="block truncate" title={row.anchor}>
+            {row.anchor}
+          </span>
+        </td>
+        <td className="hidden md:table-cell px-2 py-3 whitespace-nowrap">
+          {row.link_type || (row.dofollow ? "dofollow" : "nofollow")}
+        </td>
+        <td className="hidden md:table-cell px-2 py-3 text-gray-600 whitespace-nowrap">
+          {getLifeSpan(row)}
+        </td>
+      </tr>
+    );
+  }
 
   const selectedCount = checked.size;
   const allChecked =
@@ -458,6 +786,28 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
                   >
                     TODAY LOST
                   </button>
+                  <button
+                    className={`rounded-md px-3 py-1.5 text-sm ${
+                      groupMode === "site" ? "bg-black text-white" : "border"
+                    }`}
+                    onClick={() =>
+                      setGroupMode(groupMode === "site" ? "none" : "site")
+                    }
+                    title="Group backlinks by partner website / organization"
+                  >
+                    GROUP BY SITE
+                  </button>
+                  <button
+                    className={`rounded-md px-3 py-1.5 text-sm ${
+                      groupMode === "email" ? "bg-black text-white" : "border"
+                    }`}
+                    onClick={() =>
+                      setGroupMode(groupMode === "email" ? "none" : "email")
+                    }
+                    title="Group backlinks by contact email (rows without an email fall back to their site group)"
+                  >
+                    GROUP BY EMAIL
+                  </button>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -585,82 +935,45 @@ export default function Dashboard({ onAdd, onModify }: DashboardProps) {
                             onChange={(e) => toggleAll(e.target.checked)}
                           />
                         </th>
-                        <th className="w-[35%] px-2 py-3">Backlinks</th>
-                        <th className="w-[28%] px-2 py-3">Target URL</th>
-                        <th className="w-[18%] px-2 py-3">Status</th>
-                        <th className="hidden sm:table-cell w-[12%] px-2 py-3">Anchor</th>
-                        <th className="hidden md:table-cell w-[10%] px-2 py-3">Link Type</th>
-                        <th className="hidden md:table-cell w-[9%] px-2 py-3">Life Span</th>
-                        <th className="hidden sm:table-cell w-[14%] px-2 py-3">Last Checked</th>
+                        <th className="w-[12%] px-2 py-3">Published</th>
+                        <th className="w-[12%] px-2 py-3">Type</th>
+                        <th className="w-[30%] px-2 py-3">Backlinks</th>
+                        <th className="w-[25%] px-2 py-3">Target URL</th>
+                        <th className="w-[15%] px-2 py-3">Status</th>
+                        <th className="hidden sm:table-cell w-[10%] px-2 py-3">Anchor</th>
+                        <th className="hidden md:table-cell w-[8%] px-2 py-3">Link Type</th>
+                        <th className="hidden md:table-cell w-[8%] px-2 py-3">Life Span</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredRows.map((row) => (
-                        <tr
-                          key={row.id}
-                          className={`border-b last:border-0 ${
-                            row.skipped ? "line-through opacity-50" : ""
-                          }`}
-                        >
-                          <td className="pl-3 pr-1 py-3">
-                            <input
-                              type="checkbox"
-                              checked={checked.has(row.id)}
-                              onChange={(e) =>
-                                toggleOne(row.id, e.target.checked)
-                              }
-                            />
-                          </td>
-                          <td className="px-2 py-3 text-blue-600 max-w-0">
-                            <a
-                              href={row.backlinks}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={row.backlinks}
-                              className="block truncate"
-                            >
-                              {row.backlinks}
-                            </a>
-                          </td>
-                          <td className="px-2 py-3 text-blue-600 max-w-0">
-                            <a
-                              href={row.target}
-                              target="_blank"
-                              rel="noreferrer"
-                              title={row.target}
-                              className="block truncate"
-                            >
-                              {row.target}
-                            </a>
-                          </td>
-                          <td className="px-2 py-3">
-                            <span
-                              className={`rounded-full px-2 py-1 text-xs font-medium ${statusStyle(
-                                row.status,
-                              )}`}
-                            >
-                              {row.status?.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="hidden sm:table-cell px-2 py-3 max-w-0">
-                            <span className="block truncate" title={row.anchor}>{row.anchor}</span>
-                          </td>
-                          <td className="hidden md:table-cell px-2 py-3 whitespace-nowrap">
-                            {row.link_type ||
-                              (row.dofollow ? "dofollow" : "nofollow")}
-                          </td>
-                          <td className="hidden md:table-cell px-2 py-3 text-gray-600 whitespace-nowrap">
-                            {getLifeSpan(row)}
-                          </td>
-                          <td className="hidden sm:table-cell px-2 py-3 text-gray-600 whitespace-nowrap">
-                            {row.last_checked ? row.last_checked.split("T")[0] : "-"}
-                          </td>
-                        </tr>
-                      ))}
+                      {groupMode !== "none"
+                        ? groupedRows.map((group) => {
+                            const isExpanded = expandedGroups.has(group.key);
+                            const groupChecked = group.rows.every((row) =>
+                              checked.has(row.id),
+                            );
+                            return (
+                              <FragmentGroup
+                                key={group.key}
+                                group={group}
+                                isExpanded={isExpanded}
+                                groupChecked={groupChecked}
+                                onToggleExpanded={() =>
+                                  toggleGroupExpanded(group.key)
+                                }
+                                onToggleChecked={(isChecked) =>
+                                  toggleGroupChecked(group, isChecked)
+                                }
+                                renderRow={renderBacklinkRow}
+                              />
+                            );
+                          })
+                        : filteredRows.map((row) => renderBacklinkRow(row))}
                     </tbody>
                   </table>
                 </div>
               )}
+
             </div>
           </div>
         </div>
