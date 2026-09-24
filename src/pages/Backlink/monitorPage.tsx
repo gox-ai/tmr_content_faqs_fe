@@ -446,8 +446,23 @@ export default function Dashboard({
           continue;
         }
 
+        if (
+          key === "publishedFrom" ||
+          key === "publishedTo" ||
+          key === "lastCheckedFrom" ||
+          key === "lastCheckedTo"
+        )
+          continue;
+
         if (key === "publishedDate") {
           if (!r.published_at) return false;
+          if (value === "custom") {
+            const publishedDay = r.published_at.split("T")[0];
+            const { publishedFrom, publishedTo } = extraFilters;
+            if (publishedFrom && publishedDay < publishedFrom) return false;
+            if (publishedTo && publishedDay > publishedTo) return false;
+            continue;
+          }
           const diffDays = Math.floor(
             (Date.now() - new Date(r.published_at).getTime()) /
               (1000 * 3600 * 24),
@@ -465,6 +480,13 @@ export default function Dashboard({
             if (r.last_checked) return false;
           } else {
             if (!r.last_checked) return false;
+            if (value === "custom") {
+              const checkedDay = r.last_checked.split("T")[0];
+              const { lastCheckedFrom, lastCheckedTo } = extraFilters;
+              if (lastCheckedFrom && checkedDay < lastCheckedFrom) return false;
+              if (lastCheckedTo && checkedDay > lastCheckedTo) return false;
+              continue;
+            }
             const checkedDate = new Date(r.last_checked);
             const diffDays = Math.floor(
               (Date.now() - checkedDate.getTime()) / (1000 * 3600 * 24),
